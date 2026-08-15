@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Ninja Run</string>
+    <string name="setup_title">Welcome to Ninja Run</string>
+    <string name="setup_subtitle">Set up your personal unlock pattern to protect your vault.</string>
+    <string name="vault_title">Your Vault</string>
+    <string name="settings_title">Settings</string>
+</resources>
