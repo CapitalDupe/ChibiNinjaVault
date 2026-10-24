@@ -13,28 +13,37 @@ anything from the device, evade monitoring, or include any developer backdoor
 
 - **Setup wizard** — choose a 3–8 swipe unlock pattern, confirm it twice,
   optionally add a PIN and/or biometric unlock.
-- **Ninja Run game screen** — endless runner with lanes, obstacles, coins,
-  score, and swipe capture feeding the unlock-sequence validator (with
-  lockout/backoff after repeated wrong attempts).
+- **Ninja Run game screen** — endless runner with lanes, obstacles (jump to
+  clear them), coins, score, and swipe capture feeding the unlock-sequence
+  validator. Failed unlock attempts trigger a persisted lockout with
+  exponential backoff (it survives restarts); ordinary gameplay swipes don't
+  count as attempts.
 - **Encrypted vault** — AES-256-GCM envelope encryption: each file gets its
   own random key, which is itself wrapped by a hardware-backed Android
   Keystore master key. No keys are hard-coded anywhere.
 - **File management** — import via the system document picker (no broad
-  storage permission needed), search, delete, rename, multi-select, export
-  (decrypt back out on request).
-- **Media playback** — Media3/ExoPlayer, decrypts to a private cache temp file
-  for the duration of playback only, deleted immediately after.
-- **Settings** — change pattern/PIN, toggle biometrics, auto-lock timeout,
-  lock-on-background, sound/haptics, theme, and a vault reset (with a clear
-  warning that reset is destructive and irreversible).
-- **Unit tests** — activation sequence validation & lockout, PIN hashing
-  (PBKDF2, salted, never stores plaintext), and AES-GCM stream encrypt/decrypt
-  round-trips + tamper/wrong-key detection.
+  storage permission needed), search, delete, rename, multi-select (long-press),
+  export (decrypt back out on request). Errors are reported in the UI.
+- **Preview** — audio/video via Media3/ExoPlayer and images in an image
+  viewer. Content is decrypted to a private cache temp file for the duration of
+  viewing only and deleted afterwards (also swept on next launch after a
+  crash). Other file types can be exported.
+- **Settings** (gear icon in the vault toolbar) — change
+  pattern/PIN/biometrics, auto-lock timeout, lock-on-background, haptics,
+  theme, and a vault reset that deletes every encrypted file and the Keystore
+  key (irreversible).
+- **App lock** — the vault locks on backgrounding (or after the auto-lock
+  timeout) and after inactivity, and the app always starts on the game screen
+  after the process is killed. PIN entry is rate-limited with persisted backoff.
+- **Unit tests** — activation sequence validation & persisted lockout, app-lock
+  rules, PIN hashing (PBKDF2, salted, never stores plaintext), and AES-GCM
+  stream encrypt/decrypt round-trips + tamper/wrong-key detection.
 
 ## Building the APK from GitHub on mobile (no Android Studio needed)
 
-This repo includes `.github/workflows/build.yml`, which runs on every push to
-`main` and builds a debug APK using GitHub's hosted runners.
+This repo includes `.github/workflows/android.yml` ("Android CI"), which runs
+the unit tests and builds a debug APK on every push and pull request to `main`
+using GitHub's hosted runners.
 
 1. Create a new **empty** repository on GitHub (don't initialize with a
    README, so there's no merge conflict).
@@ -58,9 +67,9 @@ This repo includes `.github/workflows/build.yml`, which runs on every push to
    reliable path on Android).
 3. Go to the **Actions** tab of your repo on GitHub (works fine in the mobile
    app or mobile browser).
-4. You should see a "Build Ninja Run APK" run start automatically. Tap it.
+4. You should see an "Android CI" run start automatically. Tap it.
 5. When it finishes (green check), scroll down to **Artifacts** and download
-   `ninja-run-debug-apk` — that's a zip containing `app-debug.apk`.
+   `ChibiNinjaVault-debug-apk` — that's a zip containing `app-debug.apk`.
 6. Unzip on your phone (most Android file managers can do this, or use an
    app like Files by Google) and tap the `.apk` to install. You'll need to
    allow "install unknown apps" for whichever app you used to open it.
@@ -72,26 +81,37 @@ you ask for help debugging it.
 ### Manually triggering a build without a new push
 
 The workflow also supports `workflow_dispatch`, so once it's pushed once, you
-can go to **Actions → Build Ninja Run APK → Run workflow** any time you want
+can go to **Actions → Android CI → Run workflow** any time you want
 a fresh APK without changing code.
 
 ## Security notes / limitations
 
 - No plaintext file ever touches shared/public storage. Decrypted bytes only
-  ever exist in the app's private cache dir, only during active playback, and
-  are deleted the moment playback ends.
+  exist in the app's private cache dir while a file is being viewed and are
+  deleted when viewing ends, when the vault locks, and on next launch.
 - The Keystore master key never leaves the Keystore; only wrapped (encrypted)
   per-file keys are stored on disk/in the database.
+- **The swipe pattern, PIN and biometrics are an access gate inside the app,
+  not encryption keys.** File keys are protected by the Keystore master key
+  alone, so these factors do not add cryptographic protection against someone
+  who can run code as the app (e.g. a rooted device). Biometric unlock is not
+  bound to a crypto key either.
+- The swipe pattern has a small search space (3-8 swipes over 4 directions);
+  the persisted lockout slows guessing, and a PIN adds a second factor with
+  its own rate limit. Lockout timing uses the wall clock, so changing the
+  device clock can shorten it.
 - PIN is hashed with salted PBKDF2 (120k iterations) — plaintext PIN is never
   persisted.
-- There is intentionally no recovery backdoor. Losing your pattern **and**
-  PIN means the data is unrecoverable — that's a deliberate security
-  trade-off, the same one any real encrypted vault makes.
-- This is a solid working scaffold, not a fully hardened production app.
-  Before trusting it with sensitive files long-term, you'd want to add: screen-
-  recording/screenshot blocking on vault screens (`FLAG_SECURE`), a proper
-  app-wide lock-state ViewModel driving auto-lock/lock-on-background instead
-  of the current per-screen wiring, and instrumented (on-device) tests for
-  the real Keystore wrap/unwrap path (the included unit tests cover the
-  streaming cipher logic and PIN hashing, which run on plain JVM; Keystore
-  itself only exists on-device).
+- Resetting the vault deletes all encrypted files and destroys the Keystore
+  key, after which any leftover ciphertext can't be decrypted. There is
+  intentionally no recovery backdoor.
+- `FLAG_SECURE` is set on the whole activity (no screenshots / blank recents
+  thumbnail).
+- Depending on the Android version, the platform's AES-GCM may buffer an entire
+  file in memory while encrypting/decrypting, so very large files can use a
+  lot of RAM. Chunked streaming AEAD would remove that limit.
+- This is a working scaffold, not a fully hardened production app. Still
+  missing: instrumented (on-device) tests for the real Keystore wrap/unwrap
+  path (unit tests cover the streaming cipher logic, PIN hashing, lockout and
+  app-lock rules on the plain JVM), a signed release build, and upgrading the
+  alpha `security-crypto`/`biometric` dependencies.

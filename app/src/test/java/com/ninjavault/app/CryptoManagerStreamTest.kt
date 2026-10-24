@@ -9,8 +9,8 @@ import kotlin.random.Random
 
 /**
  * Tests the streaming encrypt/decrypt logic directly with a random file key,
- * bypassing Android Keystore (unavailable in plain JVM unit tests — Keystore
- * wrap/unwrap is covered by an instrumented test instead).
+ * bypassing Android Keystore (unavailable in plain JVM unit tests). The Keystore
+ * wrap/unwrap path has no automated test yet; it needs an instrumented (on-device) test.
  */
 class CryptoManagerStreamTest {
 
