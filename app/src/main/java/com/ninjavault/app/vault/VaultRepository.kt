@@ -20,9 +20,9 @@ import java.util.UUID
  * Coordinates encrypted import/export/delete of vault files. Files are stored
  * ciphertext-only in the app's private storage directory (never on shared/public
  * storage), each with its own randomly generated key wrapped by the Keystore
- * master key. Import/export use atomic renames so a crash mid-operation cannot
- * leave a corrupt or partially-written file mistaken for a good one, and the
- * user's original source file is never modified or deleted during import.
+ * master key. Import uses an atomic rename so a crash mid-operation cannot
+ * leave a partially-written file mistaken for a good one, and the user's
+ * original source file is never modified or deleted during import.
  */
 class VaultRepository(
     private val context: Context,
@@ -33,9 +33,14 @@ class VaultRepository(
         File(context.filesDir, "vault_blobs").apply { mkdirs() }
     }
 
+    private val playbackDir: File
+        get() = File(context.cacheDir, "playback_tmp")
+
     fun observeFolder(folderPath: String): Flow<List<VaultFileEntity>> = dao.observeFolder(folderPath)
     fun observeFolders(): Flow<List<String>> = dao.observeFolders()
-    fun search(query: String): Flow<List<VaultFileEntity>> = dao.search(query)
+    fun search(query: String): Flow<List<VaultFileEntity>> = dao.search(escapeLike(query))
+
+    suspend fun getFile(id: Long): VaultFileEntity? = dao.getById(id)
 
     suspend fun importFile(
         sourceUri: Uri,
@@ -43,9 +48,10 @@ class VaultRepository(
         mimeType: String,
         folderPath: String = "/"
     ): Result<VaultFileEntity> = withContext(Dispatchers.IO) {
+        val tempOut = File(vaultDir, "${UUID.randomUUID()}.tmp")
+        val finalFile = File(vaultDir, "${UUID.randomUUID()}.enc")
         runCatching {
             val resolver: ContentResolver = context.contentResolver
-            val tempOut = File(vaultDir, "${UUID.randomUUID()}.tmp")
             val fileKey = crypto.generateFileKey()
 
             resolver.openInputStream(sourceUri)?.use { input ->
@@ -55,10 +61,11 @@ class VaultRepository(
             } ?: error("Could not open source file for import")
 
             // Atomic move into place only after encryption fully succeeds.
-            val finalFile = File(vaultDir, "${UUID.randomUUID()}.enc")
             if (!tempOut.renameTo(finalFile)) error("Failed to finalize encrypted file")
 
-            val size = finalFile.length()
+            // Stored size is the plaintext size: ciphertext minus IV header and GCM tag.
+            val overhead = CryptoManager.GCM_IV_LENGTH_BYTES + CryptoManager.GCM_TAG_LENGTH_BITS / 8
+            val size = (finalFile.length() - overhead).coerceAtLeast(0L)
             val now = System.currentTimeMillis()
             val entity = VaultFileEntity(
                 displayName = displayName,
@@ -73,22 +80,29 @@ class VaultRepository(
             )
             val id = dao.insert(entity)
             entity.copy(id = id)
+        }.onFailure {
+            // Don't leave orphaned ciphertext behind when any step fails.
+            tempOut.delete()
+            finalFile.delete()
         }
     }
 
     /** Decrypts a vault file into a temporary plaintext file for the media player to stream from. */
     suspend fun decryptToTempFile(entity: VaultFileEntity): Result<File> = withContext(Dispatchers.IO) {
+        val tempDir = playbackDir.apply { mkdirs() }
+        // Only a sanitised extension is reused: display names are user/provider supplied
+        // and must never influence the path (e.g. contain '/').
+        val ext = entity.displayName.substringAfterLast('.', "").filter { it.isLetterOrDigit() }.take(8)
+        val outFile = File(tempDir, if (ext.isEmpty()) UUID.randomUUID().toString() else "${UUID.randomUUID()}.$ext")
         runCatching {
             val fileKey = crypto.unwrapFileKey(Base64.decode(entity.wrappedKeyBase64, Base64.NO_WRAP))
-            val tempDir = File(context.cacheDir, "playback_tmp").apply { mkdirs() }
-            val outFile = File(tempDir, "${UUID.randomUUID()}_${entity.displayName}")
             FileInputStream(entity.encryptedPath).use { input ->
                 FileOutputStream(outFile).use { output ->
                     crypto.decryptStream(input, output, fileKey)
                 }
             }
             outFile
-        }
+        }.onFailure { outFile.delete() }
     }
 
     /** Explicit user-requested export: decrypts a copy out to a destination Uri (e.g. Downloads). */
@@ -106,27 +120,57 @@ class VaultRepository(
 
     suspend fun deleteFile(entity: VaultFileEntity): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            File(entity.encryptedPath).delete()
+            val blob = File(entity.encryptedPath)
+            // Keep the database row if the blob can't be removed, so nothing is orphaned silently.
+            if (blob.exists() && !blob.delete()) error("Could not delete the encrypted file")
             dao.delete(entity)
         }
     }
 
-    suspend fun renameFile(entity: VaultFileEntity, newName: String) = withContext(Dispatchers.IO) {
-        dao.update(entity.copy(displayName = newName, modifiedAtMillis = System.currentTimeMillis()))
+    suspend fun renameFile(entity: VaultFileEntity, newName: String): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                dao.update(entity.copy(displayName = newName, modifiedAtMillis = System.currentTimeMillis()))
+            }
+        }
+
+    /**
+     * Irreversible reset: removes every encrypted blob and database row, then destroys
+     * the Keystore master key so any leftover ciphertext can never be decrypted.
+     */
+    suspend fun wipeAll(): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            clearPlaybackTempFiles()
+            vaultDir.listFiles()?.forEach { it.delete() }
+            dao.deleteAll()
+            crypto.destroyMasterKey()
+        }
     }
 
     /** Clears any leftover decrypted playback temp files (called on lock/background). */
     fun clearPlaybackTempFiles() {
-        File(context.cacheDir, "playback_tmp").listFiles()?.forEach { it.delete() }
+        playbackDir.listFiles()?.forEach { it.delete() }
     }
 
-    private fun inferType(mimeType: String, name: String): VaultFileType = when {
-        mimeType.startsWith("image/") -> VaultFileType.IMAGE
-        mimeType.startsWith("video/") -> VaultFileType.VIDEO
-        mimeType.startsWith("audio/") -> VaultFileType.AUDIO
-        mimeType == "application/pdf" -> VaultFileType.PDF
-        mimeType == "application/zip" -> VaultFileType.ZIP
-        name.endsWith(".doc") || name.endsWith(".docx") || name.endsWith(".txt") -> VaultFileType.DOCUMENT
-        else -> VaultFileType.OTHER
+    /** Startup housekeeping: plaintext left by a crash and half-written imports. */
+    fun cleanupStaleFiles() {
+        clearPlaybackTempFiles()
+        vaultDir.listFiles { f -> f.extension == "tmp" }?.forEach { it.delete() }
+    }
+
+    private fun escapeLike(query: String): String =
+        query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+    private fun inferType(mimeType: String, name: String): VaultFileType {
+        val lower = name.lowercase()
+        return when {
+            mimeType.startsWith("image/") -> VaultFileType.IMAGE
+            mimeType.startsWith("video/") -> VaultFileType.VIDEO
+            mimeType.startsWith("audio/") -> VaultFileType.AUDIO
+            mimeType == "application/pdf" -> VaultFileType.PDF
+            mimeType == "application/zip" -> VaultFileType.ZIP
+            lower.endsWith(".doc") || lower.endsWith(".docx") || lower.endsWith(".txt") -> VaultFileType.DOCUMENT
+            else -> VaultFileType.OTHER
+        }
     }
 }

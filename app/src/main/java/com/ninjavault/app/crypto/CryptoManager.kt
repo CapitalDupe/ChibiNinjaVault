@@ -27,9 +27,15 @@ import javax.crypto.spec.SecretKeySpec
  * expose any other file, and the master key material is never present in app
  * memory or storage in plaintext.
  *
- * No key is ever hard-coded. There is no master password / developer backdoor:
- * if the user loses their PIN/passphrase and the optional recovery key, the
- * vault contents are not recoverable, by design.
+ * No key is ever hard-coded and there is no developer backdoor. Be aware that the
+ * file keys are protected by the Keystore master key alone: the unlock pattern,
+ * PIN and biometrics are an in-app access gate, not inputs to the encryption.
+ * Destroying the master key (see [destroyMasterKey]) is what makes vault
+ * contents permanently unrecoverable.
+ *
+ * Limitation: depending on the Android version, the platform's AES-GCM provider
+ * may buffer a whole stream in memory before releasing output, so very large
+ * files can need a lot of heap. Chunked (streaming) AEAD would remove this.
  */
 class CryptoManager {
 
@@ -41,6 +47,10 @@ class CryptoManager {
         const val GCM_IV_LENGTH_BYTES = 12
         const val AES_KEY_SIZE_BITS = 256
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
+
+        // Shared by every CryptoManager instance so two concurrent first-time callers
+        // can never each generate a master key and overwrite one another.
+        private val keyLock = Any()
     }
 
     // Lazy so plain-JVM unit tests exercising only the streaming encrypt/decrypt
@@ -52,9 +62,11 @@ class CryptoManager {
     }
 
     /** Returns the hardware/keystore-backed master key, generating it on first use. */
-    private fun getOrCreateMasterKey(): SecretKey {
-        (keyStore.getKey(masterKeyAlias, null) as? SecretKey)?.let { return it }
+    private fun getOrCreateMasterKey(): SecretKey = synchronized(keyLock) {
+        (keyStore.getKey(masterKeyAlias, null) as? SecretKey) ?: createMasterKey()
+    }
 
+    private fun createMasterKey(): SecretKey {
         val keyGenerator = KeyGenerator.getInstance(
             KeyProperties.KEY_ALGORITHM_AES, androidKeyStore
         )
@@ -148,8 +160,10 @@ class CryptoManager {
 
     /** Deletes the master key from the Keystore. Used only for full vault reset/wipe. */
     fun destroyMasterKey() {
-        if (keyStore.containsAlias(masterKeyAlias)) {
-            keyStore.deleteEntry(masterKeyAlias)
+        synchronized(keyLock) {
+            if (keyStore.containsAlias(masterKeyAlias)) {
+                keyStore.deleteEntry(masterKeyAlias)
+            }
         }
     }
 }

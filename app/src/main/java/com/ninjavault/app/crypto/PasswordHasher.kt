@@ -1,5 +1,6 @@
 package com.ninjavault.app.crypto
 
+import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
 import javax.crypto.SecretKeyFactory
@@ -39,10 +40,6 @@ object PasswordHasher {
         return salt
     }
 
-    private fun constantTimeEquals(a: String, b: String): Boolean {
-        if (a.length != b.length) return false
-        var result = 0
-        for (i in a.indices) result = result or (a[i].code xor b[i].code)
-        return result == 0
-    }
+    private fun constantTimeEquals(a: String, b: String): Boolean =
+        MessageDigest.isEqual(a.toByteArray(Charsets.UTF_8), b.toByteArray(Charsets.UTF_8))
 }
