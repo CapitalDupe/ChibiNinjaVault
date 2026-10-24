@@ -7,6 +7,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.ninjavault.app.vault.SwipeDirection
@@ -21,6 +23,7 @@ private val ALL_DIRECTIONS = listOf(SwipeDirection.LEFT, SwipeDirection.RIGHT, S
  */
 @Composable
 fun SetupWizardScreen(
+    biometricAvailable: Boolean,
     onComplete: (sequence: List<SwipeDirection>, pin: String?, biometricEnabled: Boolean) -> Unit
 ) {
     var step by remember { mutableStateOf(0) }
@@ -82,19 +85,30 @@ fun SetupWizardScreen(
                     OutlinedTextField(
                         value = pin, onValueChange = { pin = it.filter { c -> c.isDigit() }.take(8) },
                         label = { Text("Enter PIN") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         visualTransformation = PasswordVisualTransformation(),
                         modifier = Modifier.padding(top = 8.dp)
                     )
                     OutlinedTextField(
                         value = confirmPin, onValueChange = { confirmPin = it.filter { c -> c.isDigit() }.take(8) },
                         label = { Text("Confirm PIN") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         visualTransformation = PasswordVisualTransformation(),
                         modifier = Modifier.padding(top = 8.dp)
                     )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
-                    Checkbox(checked = wantsBiometric, onCheckedChange = { wantsBiometric = it })
-                    Text("Enable biometric unlock (if supported)")
+                    Checkbox(
+                        checked = wantsBiometric && biometricAvailable,
+                        onCheckedChange = { wantsBiometric = it },
+                        enabled = biometricAvailable
+                    )
+                    Text(
+                        if (biometricAvailable) "Enable biometric unlock"
+                        else "Biometric unlock isn't available on this device"
+                    )
                 }
                 Spacer(Modifier.height(24.dp))
                 Button(onClick = {
@@ -103,7 +117,7 @@ fun SetupWizardScreen(
                         return@Button
                     }
                     errorText = null
-                    onComplete(sequence, if (wantsPin) pin else null, wantsBiometric)
+                    onComplete(sequence, if (wantsPin) pin else null, wantsBiometric && biometricAvailable)
                 }) {
                     Text("Finish setup")
                 }

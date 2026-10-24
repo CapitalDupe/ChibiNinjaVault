@@ -2,7 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
-    <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Media/file access uses the Storage Access Framework (document picker),
          so no broad storage permission is requested. -->
 
@@ -16,10 +15,15 @@
         android:theme="@style/Theme.NinjaRun"
         android:hardwareAccelerated="true">
 
+        <!-- configChanges: rotation and similar changes must not recreate the activity.
+             MainActivity intentionally discards saved state on recreation (so a killed
+             process can never restore straight into the vault), which would otherwise
+             re-lock the vault every time the screen rotates. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|uiMode"
             android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.NinjaRun">
             <intent-filter>
