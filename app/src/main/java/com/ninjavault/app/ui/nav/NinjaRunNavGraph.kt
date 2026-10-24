@@ -5,6 +5,7 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -187,7 +188,8 @@ fun NinjaRunNavGraph(
             composable(Routes.PLAYER) {
                 // Looked up by id (not from the filtered list) so search text can't blank the screen.
                 val file by produceState<VaultFileEntity?>(initialValue = null, selectedFileId) {
-                    value = selectedFileId?.let { vaultViewModel.getFile(it) }
+                    val id: Long? = selectedFileId
+                    value = if (id != null) vaultViewModel.getFile(id) else null
                 }
                 file?.let { MediaPlayerScreen(file = it, viewModel = vaultViewModel) }
             }
