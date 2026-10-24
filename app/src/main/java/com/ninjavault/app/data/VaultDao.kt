@@ -9,8 +9,12 @@ interface VaultDao {
     @Query("SELECT * FROM vault_files WHERE folderPath = :folderPath ORDER BY displayName ASC")
     fun observeFolder(folderPath: String): Flow<List<VaultFileEntity>>
 
-    @Query("SELECT * FROM vault_files WHERE displayName LIKE '%' || :query || '%'")
+    /** [query] must already have `\`, `%` and `_` escaped with a backslash (see VaultRepository). */
+    @Query("SELECT * FROM vault_files WHERE displayName LIKE '%' || :query || '%' ESCAPE '\\' ORDER BY displayName ASC")
     fun search(query: String): Flow<List<VaultFileEntity>>
+
+    @Query("DELETE FROM vault_files")
+    suspend fun deleteAll()
 
     @Query("SELECT * FROM vault_files WHERE id = :id")
     suspend fun getById(id: Long): VaultFileEntity?

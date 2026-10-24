@@ -2,8 +2,8 @@ package com.ninjavault.app.crypto
 
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
-import androidx.fragment.app.FragmentActivity
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 
 object BiometricHelper {
 
@@ -13,8 +13,13 @@ object BiometricHelper {
             BiometricManager.BIOMETRIC_SUCCESS
     }
 
+    /**
+     * Shows the system biometric prompt. Note this is an access gate only: it is not
+     * bound to a cryptographic key, so it does not protect the vault's encryption keys.
+     */
     fun authenticate(
         activity: FragmentActivity,
+        negativeText: String,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
@@ -36,7 +41,8 @@ object BiometricHelper {
         val info = BiometricPrompt.PromptInfo.Builder()
             .setTitle("Unlock vault")
             .setSubtitle("Confirm your identity")
-            .setNegativeButtonText("Use pattern instead")
+            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK)
+            .setNegativeButtonText(negativeText)
             .build()
         prompt.authenticate(info)
     }
