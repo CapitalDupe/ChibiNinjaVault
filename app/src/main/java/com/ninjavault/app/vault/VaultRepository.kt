@@ -49,7 +49,7 @@ class VaultRepository(
         folderPath: String = "/"
     ): Result<VaultFileEntity> = withContext(Dispatchers.IO) {
         val tempOut = File(vaultDir, "${UUID.randomUUID()}.tmp")
-        val finalFile = File(vaultDir, "${UUID.randomUUID()}.enc")
+        val finalFile = File(vaultDir, "${UUID.randomUUID()}.adx")
         runCatching {
             val resolver: ContentResolver = context.contentResolver
             val fileKey = crypto.generateFileKey()
