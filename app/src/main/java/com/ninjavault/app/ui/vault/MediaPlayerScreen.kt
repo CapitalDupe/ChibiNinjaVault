@@ -3,6 +3,8 @@ package com.ninjavault.app.ui.vault
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.pdf.PdfRenderer
+import android.os.ParcelFileDescriptor
 import android.net.Uri
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -12,13 +14,16 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.text.font.FontFamily
 import com.ninjavault.app.vault.AppLockController
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
@@ -62,6 +67,9 @@ fun MediaPlayerScreen(
     var error by remember(file.id) { mutableStateOf<String?>(null) }
     var htmlText by remember(file.id) { mutableStateOf<String?>(null) }
     var plainText by remember(file.id) { mutableStateOf<String?>(null) }
+    var pdfBitmap by remember(file.id) { mutableStateOf<Bitmap?>(null) }
+    var pdfPageCount by remember(file.id) { mutableIntStateOf(0) }
+    var pdfPageIndex by remember(file.id) { mutableIntStateOf(0) }
 
     // Derived from the stored MIME type first, then the name; a rename to "x.adx" can't break it.
     val effectiveType = file.effectiveType()
@@ -76,7 +84,8 @@ fun MediaPlayerScreen(
     val previewable = isHtml || isText ||
         effectiveType == VaultFileType.VIDEO ||
         effectiveType == VaultFileType.AUDIO ||
-        effectiveType == VaultFileType.IMAGE
+        effectiveType == VaultFileType.IMAGE ||
+        effectiveType == VaultFileType.PDF
 
     LaunchedEffect(file.id) {
         if (!previewable) return@LaunchedEffect
@@ -105,6 +114,20 @@ fun MediaPlayerScreen(
             if (decoded == null) error = "Couldn't display this image" else bitmap = decoded
         } else {
             decryptedFile = decrypted
+        }
+    }
+
+    LaunchedEffect(decryptedFile, pdfPageIndex) {
+        val pdf = decryptedFile
+        if (effectiveType != VaultFileType.PDF || pdf == null) return@LaunchedEffect
+        val rendered = withContext(Dispatchers.IO) {
+            runCatching { renderPdfPage(pdf, pdfPageIndex) }.getOrNull()
+        }
+        if (rendered == null) {
+            error = "Couldn't render this PDF page"
+        } else {
+            pdfBitmap = rendered.first
+            pdfPageCount = rendered.second
         }
     }
 
@@ -179,6 +202,38 @@ fun MediaPlayerScreen(
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize()
             )
+            currentFile != null && effectiveType == VaultFileType.PDF -> {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(
+                            enabled = pdfPageIndex > 0,
+                            onClick = { pdfPageIndex-- }
+                        ) { Text("Previous") }
+                        Text(
+                            if (pdfPageCount > 0) "Page ${pdfPageIndex + 1} of $pdfPageCount" else "Opening PDF…",
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
+                        TextButton(
+                            enabled = pdfPageCount > 0 && pdfPageIndex < pdfPageCount - 1,
+                            onClick = { pdfPageIndex++ }
+                        ) { Text("Next") }
+                    }
+                    val page = pdfBitmap
+                    if (page != null) {
+                        Image(
+                            bitmap = page.asImageBitmap(),
+                            contentDescription = "PDF page ${pdfPageIndex + 1}",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.fillMaxWidth().weight(1f)
+                        )
+                    } else {
+                        CircularProgressIndicator(modifier = Modifier.padding(24.dp))
+                    }
+                }
+            }
             currentFile != null -> {
                 val exoPlayer = remember(currentFile) {
                     ExoPlayer.Builder(context).build().apply {
@@ -202,6 +257,33 @@ fun MediaPlayerScreen(
             }
             else -> CircularProgressIndicator()
         }
+    }
+}
+
+/** Renders one PDF page at a time so large documents do not load every page into memory. */
+private fun renderPdfPage(file: File, pageIndex: Int): Pair<Bitmap, Int> {
+    val descriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+    try {
+        val renderer = PdfRenderer(descriptor)
+        try {
+            require(renderer.pageCount > 0) { "PDF has no pages" }
+            val index = pageIndex.coerceIn(0, renderer.pageCount - 1)
+            val page = renderer.openPage(index)
+            try {
+                val scale = (1600f / page.width).coerceAtMost(2f)
+                val width = (page.width * scale).toInt().coerceAtLeast(1)
+                val height = (page.height * scale).toInt().coerceAtLeast(1)
+                val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                return bitmap to renderer.pageCount
+            } finally {
+                page.close()
+            }
+        } finally {
+            renderer.close()
+        }
+    } finally {
+        descriptor.close()
     }
 }
 

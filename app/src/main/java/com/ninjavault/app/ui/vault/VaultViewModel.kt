@@ -109,8 +109,9 @@ class VaultViewModel(context: Context) : ViewModel() {
             report("Name can't be empty")
             return
         }
+        val safeName = VaultNames.renamedDisplayName(file.displayName, trimmed)
         viewModelScope.launch {
-            repository.renameFile(file, trimmed)
+            repository.renameFile(file, safeName)
                 .onFailure { report("Couldn't rename: ${it.message ?: "unknown error"}") }
         }
     }
