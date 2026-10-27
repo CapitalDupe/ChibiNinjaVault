@@ -7,7 +7,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ninjavault.app.data.VaultDatabase
 import com.ninjavault.app.data.VaultFileEntity
+import com.ninjavault.app.vault.VaultNames
 import com.ninjavault.app.vault.VaultRepository
+import com.ninjavault.app.vault.listName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -40,8 +42,10 @@ class VaultViewModel(context: Context) : ViewModel() {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val currentFiles = searchQuery.flatMapLatest { q ->
-        if (q.isBlank()) currentFolder.flatMapLatest { repository.observeFolder(it) }
-        else repository.search(q)
+        // Names are displayed as "<name>.adx", so "photo.adx" must still find the stored "photo.jpg".
+        val term = VaultNames.stripAdxSuffix(q.trim())
+        if (term.isEmpty()) currentFolder.flatMapLatest { repository.observeFolder(it) }
+        else repository.search(term)
     }
 
     init {
@@ -86,7 +90,7 @@ class VaultViewModel(context: Context) : ViewModel() {
     fun deleteFile(file: VaultFileEntity) {
         viewModelScope.launch {
             repository.deleteFile(file)
-                .onFailure { report("Couldn't delete \"${file.displayName}\": ${it.message ?: "unknown error"}") }
+                .onFailure { report("Couldn't delete \"${file.listName()}\": ${it.message ?: "unknown error"}") }
         }
     }
 
@@ -94,7 +98,7 @@ class VaultViewModel(context: Context) : ViewModel() {
         viewModelScope.launch {
             files.forEach { file ->
                 repository.deleteFile(file)
-                    .onFailure { report("Couldn't delete \"${file.displayName}\": ${it.message ?: "unknown error"}") }
+                    .onFailure { report("Couldn't delete \"${file.listName()}\": ${it.message ?: "unknown error"}") }
             }
         }
     }
@@ -114,8 +118,8 @@ class VaultViewModel(context: Context) : ViewModel() {
     fun exportFile(file: VaultFileEntity, destination: Uri) {
         viewModelScope.launch {
             repository.exportFile(file, destination)
-                .onSuccess { report("Exported \"${file.displayName}\"") }
-                .onFailure { report("Couldn't export \"${file.displayName}\": ${it.message ?: "unknown error"}") }
+                .onSuccess { report("Exported \"${file.listName()}\"") }
+                .onFailure { report("Couldn't export \"${file.listName()}\": ${it.message ?: "unknown error"}") }
         }
     }
 

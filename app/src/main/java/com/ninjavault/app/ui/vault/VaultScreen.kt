@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.dp
 import com.ninjavault.app.data.VaultFileEntity
 import com.ninjavault.app.data.VaultFileType
 import com.ninjavault.app.vault.AppLockController
+import com.ninjavault.app.vault.effectiveType
+import com.ninjavault.app.vault.listName
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -159,7 +161,7 @@ fun VaultScreen(
     pendingDelete?.let { file ->
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
-            title = { Text("Delete \"${file.displayName}\"?") },
+            title = { Text("Delete \"${file.listName()}\"?") },
             text = { Text("This permanently deletes the encrypted file. This cannot be undone.") },
             confirmButton = {
                 TextButton(onClick = {
@@ -197,7 +199,7 @@ fun VaultScreen(
                     value = newName,
                     onValueChange = { newName = it },
                     singleLine = true,
-                    label = { Text("Name") }
+                    label = { Text("Name (shown with .adx)") }
                 )
             },
             confirmButton = {
@@ -228,9 +230,9 @@ private fun VaultFileRow(
     var menuOpen by remember { mutableStateOf(false) }
 
     ListItem(
-        headlineContent = { Text(adxName(file.displayName)) },
-        supportingContent = { Text("${file.fileType.name} · ${formatSize(file.sizeBytes)}") },
-        leadingContent = { Icon(iconFor(file.fileType), contentDescription = null) },
+        headlineContent = { Text(file.listName()) },
+        supportingContent = { Text("${file.effectiveType().name} · ${formatSize(file.sizeBytes)}") },
+        leadingContent = { Icon(iconFor(file.effectiveType()), contentDescription = null) },
         trailingContent = {
             Box {
                 IconButton(onClick = { menuOpen = true }) {
@@ -287,6 +289,3 @@ private class OpenWritableDocuments : ActivityResultContracts.OpenMultipleDocume
     override fun createIntent(context: Context, input: Array<String>): Intent =
         super.createIntent(context, input).addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
 }
-
-/** Vault files are shown with the app's own .adx extension; the original name is kept for export/playback. */
-private fun adxName(name: String): String = name.substringBeforeLast('.', name) + ".adx"

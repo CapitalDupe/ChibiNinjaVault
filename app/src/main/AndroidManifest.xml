@@ -30,6 +30,37 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Registers ".adx" as a file type this app handles, so it shows up in
+                 "Open with" for .adx files. Opening one only launches the app on the game
+                 screen: the intent's data is deliberately never read, so it can't bypass
+                 the unlock pattern or import anything. -->
+
+            <!-- Our own MIME type (e.g. when another app shares/labels a file this way). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/x-adx" />
+            </intent-filter>
+
+            <!-- By file name: pathPattern has no real wildcard for dots, so several depths
+                 are listed to also match names like "my.holiday.video.adx". -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="*/*" />
+                <data android:host="*" />
+                <data android:pathPattern=".*\\.adx" />
+                <data android:pathPattern=".*\\..*\\.adx" />
+                <data android:pathPattern=".*\\..*\\..*\\.adx" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.adx" />
+            </intent-filter>
         </activity>
 
     </application>

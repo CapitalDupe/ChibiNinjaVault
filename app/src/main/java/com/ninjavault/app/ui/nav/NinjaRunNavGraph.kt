@@ -191,7 +191,7 @@ fun NinjaRunNavGraph(
                     val id: Long? = selectedFileId
                     value = if (id != null) vaultViewModel.getFile(id) else null
                 }
-                file?.let { MediaPlayerScreen(file = it, viewModel = vaultViewModel) }
+                file?.let { MediaPlayerScreen(file = it, viewModel = vaultViewModel, appLock = appLock) }
             }
 
             composable(Routes.SETTINGS) {
