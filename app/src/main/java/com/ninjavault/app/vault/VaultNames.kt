@@ -54,6 +54,23 @@ object VaultNames {
         return (base.ifEmpty { "file" }) + ADX_SUFFIX
     }
 
+    /** Base name shown in the rename field; the real extension is preserved separately. */
+    fun nameWithoutExtension(name: String): String {
+        val dot = name.lastIndexOf('.')
+        return if (dot > 0) name.substring(0, dot) else name
+    }
+
+    /** Rename only the base name so previews keep the original format and MIME type. */
+    fun renamedDisplayName(original: String, requestedBase: String): String {
+        val trimmed = requestedBase.trim()
+        val dot = original.lastIndexOf('.')
+        val suffix = if (dot > 0) original.substring(dot) else ""
+        val base = if (suffix.isNotEmpty() && trimmed.endsWith(suffix, ignoreCase = true)) {
+            trimmed.dropLast(suffix.length)
+        } else trimmed
+        return base.trimEnd('.').ifBlank { "file" } + suffix
+    }
+
     /** Suggested name for an exported key file: "photo.jpg" -> "photo.adxkey". */
     fun keyFileName(original: String): String = adxDisplayName(original).dropLast(ADX_SUFFIX.length) + ".adxkey"
 

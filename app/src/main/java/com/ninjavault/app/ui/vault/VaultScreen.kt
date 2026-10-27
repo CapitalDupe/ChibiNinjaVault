@@ -297,7 +297,7 @@ fun VaultScreen(
     }
 
     renameTarget?.let { file ->
-        var newName by remember(file.id) { mutableStateOf(file.displayName) }
+        var newName by remember(file.id) { mutableStateOf(VaultNames.nameWithoutExtension(file.displayName)) }
         AlertDialog(
             onDismissRequest = { renameTarget = null },
             title = { Text("Rename file") },
@@ -306,7 +306,7 @@ fun VaultScreen(
                     value = newName,
                     onValueChange = { newName = it },
                     singleLine = true,
-                    label = { Text("Name (shown with .adx)") }
+                    label = { Text("File name (extension preserved)") }
                 )
             },
             confirmButton = {

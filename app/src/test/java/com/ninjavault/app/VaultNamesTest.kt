@@ -22,6 +22,21 @@ class VaultNamesTest {
     }
 
     @Test
+    fun `rename preserves the real extension used for preview`() {
+        assertEquals("renamed.html", VaultNames.renamedDisplayName("index.html", "renamed"))
+        assertEquals("renamed.pdf", VaultNames.renamedDisplayName("report.pdf", "renamed"))
+        assertEquals("my.page.html", VaultNames.renamedDisplayName("index.html", "my.page"))
+        assertEquals("renamed.html", VaultNames.renamedDisplayName("index.html", "renamed.html"))
+        assertEquals("renamed", VaultNames.renamedDisplayName("notes", "renamed"))
+    }
+
+    @Test
+    fun `rename field omits only the final extension`() {
+        assertEquals("archive.tar", VaultNames.nameWithoutExtension("archive.tar.gz"))
+        assertEquals(".hidden", VaultNames.nameWithoutExtension(".hidden"))
+    }
+
+    @Test
     fun `strip adx suffix only affects a trailing adx`() {
         assertEquals("photo", VaultNames.stripAdxSuffix("photo.adx"))
         assertEquals("photo", VaultNames.stripAdxSuffix("photo.ADX"))
