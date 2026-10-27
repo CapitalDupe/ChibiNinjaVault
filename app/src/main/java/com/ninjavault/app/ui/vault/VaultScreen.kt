@@ -2,6 +2,7 @@ package com.ninjavault.app.ui.vault
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -21,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.ninjavault.app.data.VaultFileEntity
 import com.ninjavault.app.data.VaultFileType
 import com.ninjavault.app.vault.AppLockController
+import com.ninjavault.app.vault.VaultNames
 import com.ninjavault.app.vault.effectiveType
 import com.ninjavault.app.vault.listName
 
@@ -42,6 +44,12 @@ fun VaultScreen(
     var renameTarget by remember { mutableStateOf<VaultFileEntity?>(null) }
     var exportTarget by remember { mutableStateOf<VaultFileEntity?>(null) }
     var deleteOriginal by rememberSaveable { mutableStateOf(false) }
+    var encExportTarget by remember { mutableStateOf<VaultFileEntity?>(null) }
+    var keyExportTarget by remember { mutableStateOf<VaultFileEntity?>(null) }     // asking for password
+    var keyExportReady by remember { mutableStateOf<Pair<VaultFileEntity, CharArray>?>(null) } // choosing destination
+    var showImportEncIntro by remember { mutableStateOf(false) }
+    var importBlobUri by remember { mutableStateOf<Uri?>(null) }
+    var importKeyUri by remember { mutableStateOf<Uri?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.messages.collect { snackbarHostState.showSnackbar(it) }
@@ -67,6 +75,38 @@ fun VaultScreen(
         if (uri != null && target != null) viewModel.exportFile(target, uri)
     }
 
+    val encExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("*/*")
+    ) { uri ->
+        val target = encExportTarget
+        encExportTarget = null
+        if (uri != null && target != null) viewModel.exportEncryptedCopy(target, uri)
+    }
+
+    val keyExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("*/*")
+    ) { uri ->
+        val ready = keyExportReady
+        keyExportReady = null
+        if (uri != null && ready != null) viewModel.exportKey(ready.first, uri, ready.second)
+        else ready?.second?.fill('\u0000')
+    }
+
+    // Import is two pickers in a row (encrypted file, then its key file) followed by a password prompt.
+    val importKeyLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri -> if (uri != null) importKeyUri = uri else importBlobUri = null }
+
+    val importBlobLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            importBlobUri = uri
+            appLock.suppressNextBackgroundLock()
+            importKeyLauncher.launch(arrayOf("*/*"))
+        }
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
@@ -74,6 +114,9 @@ fun VaultScreen(
                 TopAppBar(
                     title = { Text("Your Vault") },
                     actions = {
+                        IconButton(onClick = { showImportEncIntro = true }) {
+                            Icon(Icons.Default.VpnKey, contentDescription = "Import encrypted file and key")
+                        }
                         IconButton(onClick = onOpenSettings) {
                             Icon(Icons.Default.Settings, contentDescription = "Settings")
                         }
@@ -151,11 +194,75 @@ fun VaultScreen(
                             appLock.suppressNextBackgroundLock()
                             exportLauncher.launch(file.displayName)
                         },
+                        onExportEncrypted = {
+                            encExportTarget = file
+                            appLock.suppressNextBackgroundLock()
+                            encExportLauncher.launch(file.listName())
+                        },
+                        onExportKey = { keyExportTarget = file },
                         onDeleteRequest = { pendingDelete = file }
                     )
                 }
             }
         }
+    }
+
+    keyExportTarget?.let { file ->
+        PasswordDialog(
+            title = "Export key",
+            message = "The key file is locked with this password. Without the password it is useless, " +
+                "and the password can't be recovered.",
+            confirmPassword = true,
+            confirmLabel = "Choose location",
+            onDismiss = { keyExportTarget = null },
+            onSubmit = { password ->
+                keyExportTarget = null
+                keyExportReady = file to password
+                appLock.suppressNextBackgroundLock()
+                keyExportLauncher.launch(VaultNames.keyFileName(file.displayName))
+            }
+        )
+    }
+
+    if (showImportEncIntro) {
+        AlertDialog(
+            onDismissRequest = { showImportEncIntro = false },
+            title = { Text("Import encrypted file") },
+            text = {
+                Text(
+                    "Choose the encrypted .adx file first, then its key file (.adxkey). " +
+                        "You'll need the password that was set when the key was exported."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showImportEncIntro = false
+                    importBlobUri = null
+                    importKeyUri = null
+                    appLock.suppressNextBackgroundLock()
+                    importBlobLauncher.launch(arrayOf("*/*"))
+                }) { Text("Choose files") }
+            },
+            dismissButton = { TextButton(onClick = { showImportEncIntro = false }) { Text("Cancel") } }
+        )
+    }
+
+    if (importBlobUri != null && importKeyUri != null) {
+        PasswordDialog(
+            title = "Key password",
+            message = "Enter the password for this key file.",
+            confirmPassword = false,
+            confirmLabel = "Import",
+            onDismiss = { importBlobUri = null; importKeyUri = null },
+            onSubmit = { password ->
+                val blob = importBlobUri
+                val key = importKeyUri
+                importBlobUri = null
+                importKeyUri = null
+                if (blob != null && key != null) viewModel.importEncrypted(blob, key, password)
+                else password.fill('\u0000')
+            }
+        )
     }
 
     pendingDelete?.let { file ->
@@ -225,6 +332,8 @@ private fun VaultFileRow(
     onLongClick: () -> Unit,
     onRename: () -> Unit,
     onExport: () -> Unit,
+    onExportEncrypted: () -> Unit,
+    onExportKey: () -> Unit,
     onDeleteRequest: () -> Unit
 ) {
     var menuOpen by remember { mutableStateOf(false) }
@@ -244,8 +353,16 @@ private fun VaultFileRow(
                         onClick = { menuOpen = false; onRename() }
                     )
                     DropdownMenuItem(
-                        text = { Text("Export a copy") },
+                        text = { Text("Export decrypted copy") },
                         onClick = { menuOpen = false; onExport() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Export encrypted copy (.adx)") },
+                        onClick = { menuOpen = false; onExportEncrypted() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Export key\u2026") },
+                        onClick = { menuOpen = false; onExportKey() }
                     )
                     DropdownMenuItem(
                         text = { Text("Delete") },
