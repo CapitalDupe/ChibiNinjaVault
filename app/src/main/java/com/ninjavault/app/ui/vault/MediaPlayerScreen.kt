@@ -27,6 +27,8 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.ninjavault.app.data.VaultFileEntity
 import com.ninjavault.app.data.VaultFileType
+import com.ninjavault.app.vault.VaultNames
+import com.ninjavault.app.vault.effectiveType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -50,13 +52,14 @@ fun MediaPlayerScreen(
     var error by remember(file.id) { mutableStateOf<String?>(null) }
     var htmlText by remember(file.id) { mutableStateOf<String?>(null) }
 
-    val lowerName = file.displayName.lowercase()
-    val isHtml = file.mimeType == "text/html" || lowerName.endsWith(".html") || lowerName.endsWith(".htm")
+    // Derived from the stored MIME type first, then the name; a rename to "x.adx" can't break it.
+    val effectiveType = file.effectiveType()
+    val isHtml = VaultNames.isHtml(file.mimeType, file.displayName)
 
     val previewable = isHtml ||
-        file.fileType == VaultFileType.VIDEO ||
-        file.fileType == VaultFileType.AUDIO ||
-        file.fileType == VaultFileType.IMAGE
+        effectiveType == VaultFileType.VIDEO ||
+        effectiveType == VaultFileType.AUDIO ||
+        effectiveType == VaultFileType.IMAGE
 
     LaunchedEffect(file.id) {
         if (!previewable) return@LaunchedEffect
@@ -75,7 +78,7 @@ fun MediaPlayerScreen(
             }
             decrypted.delete()
             if (text == null) error = "This HTML file is too large or couldn't be read" else htmlText = text
-        } else if (file.fileType == VaultFileType.IMAGE) {
+        } else if (effectiveType == VaultFileType.IMAGE) {
             val decoded = withContext(Dispatchers.IO) { decodeSampled(decrypted) }
             decrypted.delete() // plaintext no longer needed once decoded
             if (decoded == null) error = "Couldn't display this image" else bitmap = decoded
@@ -99,7 +102,7 @@ fun MediaPlayerScreen(
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         when {
             !previewable -> Text(
-                "Preview isn't available for ${file.fileType.name.lowercase()} files.\n" +
+                "Preview isn't available for ${effectiveType.name.lowercase()} files.\n" +
                     "Go back and use \"Export a copy\" from the file's menu.",
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(24.dp)

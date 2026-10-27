@@ -8,7 +8,6 @@ import android.util.Base64
 import com.ninjavault.app.crypto.CryptoManager
 import com.ninjavault.app.data.VaultDao
 import com.ninjavault.app.data.VaultFileEntity
-import com.ninjavault.app.data.VaultFileType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -67,14 +66,16 @@ class VaultRepository(
             // Stored size is the plaintext size: ciphertext minus IV header and GCM tag.
             val overhead = CryptoManager.GCM_IV_LENGTH_BYTES + CryptoManager.GCM_TAG_LENGTH_BITS / 8
             val size = (finalFile.length() - overhead).coerceAtLeast(0L)
+            // Pickers often report application/octet-stream; infer from the name so the type/preview still works.
+            val resolvedMime = VaultNames.resolveMime(mimeType, displayName)
             val now = System.currentTimeMillis()
             val entity = VaultFileEntity(
                 displayName = displayName,
                 folderPath = folderPath,
                 encryptedPath = finalFile.absolutePath,
                 wrappedKeyBase64 = Base64.encodeToString(crypto.wrapFileKey(fileKey), Base64.NO_WRAP),
-                mimeType = mimeType,
-                fileType = inferType(mimeType, displayName),
+                mimeType = resolvedMime,
+                fileType = VaultNames.typeFor(resolvedMime, displayName),
                 sizeBytes = size,
                 createdAtMillis = now,
                 modifiedAtMillis = now
@@ -107,8 +108,8 @@ class VaultRepository(
     suspend fun decryptToTempFile(entity: VaultFileEntity): Result<File> = withContext(Dispatchers.IO) {
         val tempDir = playbackDir.apply { mkdirs() }
         // Only a sanitised extension is reused: display names are user/provider supplied
-        // and must never influence the path (e.g. contain '/').
-        val ext = entity.displayName.substringAfterLast('.', "").filter { it.isLetterOrDigit() }.take(8)
+        // and must never influence the path (e.g. contain '/'). Never ".adx": see VaultNames.
+        val ext = VaultNames.playbackExtension(entity.mimeType, entity.displayName)
         val outFile = File(tempDir, if (ext.isEmpty()) UUID.randomUUID().toString() else "${UUID.randomUUID()}.$ext")
         runCatching {
             val fileKey = crypto.unwrapFileKey(Base64.decode(entity.wrappedKeyBase64, Base64.NO_WRAP))
@@ -177,16 +178,4 @@ class VaultRepository(
     private fun escapeLike(query: String): String =
         query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
-    private fun inferType(mimeType: String, name: String): VaultFileType {
-        val lower = name.lowercase()
-        return when {
-            mimeType.startsWith("image/") -> VaultFileType.IMAGE
-            mimeType.startsWith("video/") -> VaultFileType.VIDEO
-            mimeType.startsWith("audio/") -> VaultFileType.AUDIO
-            mimeType == "application/pdf" -> VaultFileType.PDF
-            mimeType == "application/zip" -> VaultFileType.ZIP
-            lower.endsWith(".doc") || lower.endsWith(".docx") || lower.endsWith(".txt") -> VaultFileType.DOCUMENT
-            else -> VaultFileType.OTHER
-        }
-    }
 }
