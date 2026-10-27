@@ -123,6 +123,32 @@ class VaultViewModel(context: Context) : ViewModel() {
         }
     }
 
+    fun exportEncryptedCopy(file: VaultFileEntity, destination: Uri) {
+        viewModelScope.launch {
+            repository.exportEncryptedBlob(file, destination)
+                .onSuccess { report("Exported encrypted copy of \"${file.listName()}\". You need its key to open it elsewhere.") }
+                .onFailure { report("Couldn't export \"${file.listName()}\": ${it.message ?: "unknown error"}") }
+        }
+    }
+
+    fun exportKey(file: VaultFileEntity, destination: Uri, password: CharArray) {
+        viewModelScope.launch {
+            repository.exportKey(file, destination, password)
+                .onSuccess { report("Exported key for \"${file.listName()}\". Keep the password safe: it can't be recovered.") }
+                .onFailure { report("Couldn't export the key: ${it.message ?: "unknown error"}") }
+        }
+    }
+
+    fun importEncrypted(blobUri: Uri, keyUri: Uri, password: CharArray) {
+        viewModelScope.launch {
+            importMutex.withLock {
+                repository.importEncrypted(blobUri, keyUri, password)
+                    .onSuccess { report("Imported \"${it.listName()}\"") }
+                    .onFailure { report(it.message ?: "Couldn't import the encrypted file") }
+            }
+        }
+    }
+
     /** Destroys every file, database row and the vault's Keystore key. [onDone] runs on the main thread. */
     fun resetVault(onDone: (Result<Unit>) -> Unit) {
         viewModelScope.launch { onDone(repository.wipeAll()) }

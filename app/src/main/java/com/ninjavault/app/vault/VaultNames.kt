@@ -54,6 +54,9 @@ object VaultNames {
         return (base.ifEmpty { "file" }) + ADX_SUFFIX
     }
 
+    /** Suggested name for an exported key file: "photo.jpg" -> "photo.adxkey". */
+    fun keyFileName(original: String): String = adxDisplayName(original).dropLast(ADX_SUFFIX.length) + ".adxkey"
+
     /** Removes a trailing ".adx" so a search for "photo.adx" still finds the stored "photo.jpg". */
     fun stripAdxSuffix(text: String): String =
         if (text.endsWith(ADX_SUFFIX, ignoreCase = true)) text.dropLast(ADX_SUFFIX.length) else text

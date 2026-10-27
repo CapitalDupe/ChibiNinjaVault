@@ -76,4 +76,10 @@ class VaultNamesTest {
         assertEquals(VaultFileType.OTHER, VaultNames.typeFor("application/octet-stream", "setup.exe"))
         assertFalse(VaultNames.isText("text/html", "page.html"))
     }
+
+    @Test
+    fun `key file name uses the adxkey extension`() {
+        assertEquals("photo.adxkey", VaultNames.keyFileName("photo.jpg"))
+        assertEquals("notes.adxkey", VaultNames.keyFileName("notes"))
+    }
 }

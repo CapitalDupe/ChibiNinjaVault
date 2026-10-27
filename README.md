@@ -84,6 +84,25 @@ The workflow also supports `workflow_dispatch`, so once it's pushed once, you
 can go to **Actions → Android CI → Run workflow** any time you want
 a fresh APK without changing code.
 
+## Exporting encrypted files and keys
+
+[#exporting-encrypted-files-and-keys](#exporting-encrypted-files-and-keys)
+
+From a file's menu in the vault:
+
+- **Export decrypted copy** - the original file, readable anywhere.
+- **Export encrypted copy (.adx)** - the raw encrypted blob. It cannot be opened without its key.
+- **Export key...** - writes that file's data key to a `.adxkey` file, locked with a password you choose (8+ characters). The password cannot be recovered.
+
+To bring a file back in (on this or another phone), tap the key icon in the vault toolbar, pick the `.adx` file, then its `.adxkey` file, and enter the password. The key is checked against the file before anything is stored, then re-protected with that device's Keystore key.
+
+The Keystore master key itself can never be exported (it is hardware-backed and non-extractable). Only per-file keys can be exported, and only encrypted under your password.
+
+Formats, for anyone writing their own decryptor:
+
+- `.adx`: 12-byte IV, then AES-256-GCM ciphertext with a 16-byte tag (no additional data).
+- `.adxkey`: text lines `ADXKEY1`, `iter`, `salt`, `iv`, `name`, `mime`, `key` (Base64). The key is AES-256-GCM encrypted under PBKDF2-HMAC-SHA256(password, salt, iter); the AAD is `ADXKEY1|<name>|<mime>`.
+
 ## Security notes / limitations
 
 - No plaintext file ever touches shared/public storage. Decrypted bytes only

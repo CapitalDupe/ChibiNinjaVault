@@ -6,6 +6,8 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import android.util.Base64
 import com.ninjavault.app.crypto.CryptoManager
+import com.ninjavault.app.crypto.KeyExport
+import com.ninjavault.app.crypto.KeyFileException
 import com.ninjavault.app.data.VaultDao
 import com.ninjavault.app.data.VaultFileEntity
 import kotlinx.coroutines.Dispatchers
@@ -14,6 +16,8 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.OutputStream
+import javax.crypto.AEADBadTagException
 import java.util.UUID
 
 /**
@@ -104,6 +108,105 @@ class VaultRepository(
         }
     }
 
+    /** Copies the still-encrypted blob (IV + ciphertext + tag) out. Unreadable without its key. */
+    suspend fun exportEncryptedBlob(entity: VaultFileEntity, destination: Uri): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                context.contentResolver.openOutputStream(destination)?.use { output ->
+                    FileInputStream(entity.encryptedPath).use { it.copyTo(output) }
+                } ?: error("Could not open export destination")
+                Unit
+            }
+        }
+
+    /**
+     * Writes this file's data key to [destination], protected by [password] (see [KeyExport]).
+     * The raw key never leaves memory unencrypted; [password] is wiped afterwards.
+     */
+    suspend fun exportKey(entity: VaultFileEntity, destination: Uri, password: CharArray): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            var fileKey: ByteArray? = null
+            val result = runCatching {
+                fileKey = crypto.unwrapFileKey(Base64.decode(entity.wrappedKeyBase64, Base64.NO_WRAP))
+                val text = KeyExport.seal(fileKey!!, password, entity.displayName, entity.mimeType)
+                context.contentResolver.openOutputStream(destination)?.use { out ->
+                    out.write(text.toByteArray(Charsets.UTF_8))
+                } ?: error("Could not open export destination")
+            }
+            fileKey?.fill(0)
+            password.fill('\u0000')
+            result
+        }
+
+    /**
+     * Imports an encrypted blob together with its exported key file. The key is checked against
+     * the blob (full GCM authentication) before anything is stored, then re-wrapped with this
+     * device's Keystore master key like any other vault file.
+     */
+    suspend fun importEncrypted(
+        blobUri: Uri,
+        keyUri: Uri,
+        password: CharArray,
+        folderPath: String = "/"
+    ): Result<VaultFileEntity> = withContext(Dispatchers.IO) {
+        val tempOut = File(vaultDir, "${UUID.randomUUID()}.tmp")
+        val finalFile = File(vaultDir, "${UUID.randomUUID()}.adx")
+        var fileKey: ByteArray? = null
+        val result = runCatching {
+            val resolver = context.contentResolver
+            val keyText = resolver.openInputStream(keyUri)?.use { stream ->
+                val limit = 16 * 1024
+                val buf = ByteArray(limit + 1)
+                var n = 0
+                while (n < buf.size) {
+                    val r = stream.read(buf, n, buf.size - n)
+                    if (r < 0) break
+                    n += r
+                }
+                if (n > limit) throw KeyFileException("That doesn't look like a valid key file.")
+                String(buf, 0, n, Charsets.UTF_8)
+            } ?: error("Could not open the key file")
+
+            val opened = KeyExport.open(keyText, password)
+            fileKey = opened.fileKey
+
+            resolver.openInputStream(blobUri)?.use { input ->
+                FileOutputStream(tempOut).use { input.copyTo(it) }
+            } ?: error("Could not open the encrypted file")
+
+            try {
+                FileInputStream(tempOut).use { crypto.decryptStream(it, DiscardOutputStream, opened.fileKey) }
+            } catch (e: AEADBadTagException) {
+                throw KeyFileException("This key doesn't match that encrypted file, or the file is damaged.")
+            }
+
+            if (!tempOut.renameTo(finalFile)) error("Failed to finalize encrypted file")
+
+            val overhead = CryptoManager.GCM_IV_LENGTH_BYTES + CryptoManager.GCM_TAG_LENGTH_BITS / 8
+            val mime = VaultNames.resolveMime(opened.mimeType, opened.displayName)
+            val now = System.currentTimeMillis()
+            val entity = VaultFileEntity(
+                displayName = opened.displayName,
+                folderPath = folderPath,
+                encryptedPath = finalFile.absolutePath,
+                wrappedKeyBase64 = Base64.encodeToString(crypto.wrapFileKey(opened.fileKey), Base64.NO_WRAP),
+                mimeType = mime,
+                fileType = VaultNames.typeFor(mime, opened.displayName),
+                sizeBytes = (finalFile.length() - overhead).coerceAtLeast(0L),
+                createdAtMillis = now,
+                modifiedAtMillis = now
+            )
+            entity.copy(id = dao.insert(entity))
+        }
+        result.onFailure {
+            tempOut.delete()
+            finalFile.delete()
+        }
+        fileKey?.fill(0)
+        password.fill('\u0000')
+        result
+    }
+
     /** Decrypts a vault file into a temporary plaintext file for the media player to stream from. */
     suspend fun decryptToTempFile(entity: VaultFileEntity): Result<File> = withContext(Dispatchers.IO) {
         val tempDir = playbackDir.apply { mkdirs() }
@@ -178,4 +281,10 @@ class VaultRepository(
     private fun escapeLike(query: String): String =
         query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
+}
+
+/** Sink used to verify a key against a blob (full GCM check) without storing any plaintext. */
+private object DiscardOutputStream : OutputStream() {
+    override fun write(b: Int) {}
+    override fun write(b: ByteArray, off: Int, len: Int) {}
 }
