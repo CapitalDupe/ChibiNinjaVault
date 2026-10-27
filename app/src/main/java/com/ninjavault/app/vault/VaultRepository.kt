@@ -3,6 +3,7 @@ package com.ninjavault.app.vault
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.util.Base64
 import com.ninjavault.app.crypto.CryptoManager
 import com.ninjavault.app.data.VaultDao
@@ -84,6 +85,21 @@ class VaultRepository(
             // Don't leave orphaned ciphertext behind when any step fails.
             tempOut.delete()
             finalFile.delete()
+        }
+    }
+
+    /**
+     * Best-effort delete of the user's original (plaintext) file after a successful import.
+     * Fails if the provider doesn't allow deletion; callers should tell the user.
+     */
+    suspend fun deleteSourceFile(sourceUri: Uri): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val deleted = if (DocumentsContract.isDocumentUri(context, sourceUri)) {
+                DocumentsContract.deleteDocument(context.contentResolver, sourceUri)
+            } else {
+                context.contentResolver.delete(sourceUri, null, null) > 0
+            }
+            if (!deleted) error("Provider refused to delete the original")
         }
     }
 

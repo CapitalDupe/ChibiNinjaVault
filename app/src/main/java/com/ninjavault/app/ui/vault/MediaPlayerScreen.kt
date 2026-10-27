@@ -1,8 +1,12 @@
 package com.ninjavault.app.ui.vault
 
+import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,11 +33,12 @@ import java.io.File
 
 /**
  * Previews a vault file: audio/video play in ExoPlayer, images are decoded and
- * shown, and other types explain that they can only be exported. Plaintext only
- * ever exists as a temp file in the app's private cache dir while this screen is
- * showing it; it is deleted when the screen leaves composition (or, for images,
- * as soon as the bitmap is decoded).
+ * shown, HTML runs in a sandboxed WebView, and other types explain that they can
+ * only be exported. Plaintext only ever exists as a temp file in the app's private
+ * cache dir while this screen is showing it; it is deleted when the screen leaves
+ * composition (or, for images and HTML, as soon as the content is loaded).
  */
+@SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun MediaPlayerScreen(
     file: VaultFileEntity,
@@ -43,8 +48,13 @@ fun MediaPlayerScreen(
     var decryptedFile by remember(file.id) { mutableStateOf<File?>(null) }
     var bitmap by remember(file.id) { mutableStateOf<Bitmap?>(null) }
     var error by remember(file.id) { mutableStateOf<String?>(null) }
+    var htmlText by remember(file.id) { mutableStateOf<String?>(null) }
 
-    val previewable = file.fileType == VaultFileType.VIDEO ||
+    val lowerName = file.displayName.lowercase()
+    val isHtml = file.mimeType == "text/html" || lowerName.endsWith(".html") || lowerName.endsWith(".htm")
+
+    val previewable = isHtml ||
+        file.fileType == VaultFileType.VIDEO ||
         file.fileType == VaultFileType.AUDIO ||
         file.fileType == VaultFileType.IMAGE
 
@@ -56,7 +66,16 @@ fun MediaPlayerScreen(
             error = "Couldn't decrypt this file: ${result.exceptionOrNull()?.message ?: "unknown error"}"
             return@LaunchedEffect
         }
-        if (file.fileType == VaultFileType.IMAGE) {
+        if (isHtml) {
+            // Read the page into memory and delete the plaintext temp file straight away.
+            val text = withContext(Dispatchers.IO) {
+                runCatching {
+                    if (decrypted.length() > MAX_HTML_BYTES) null else decrypted.readText()
+                }.getOrNull()
+            }
+            decrypted.delete()
+            if (text == null) error = "This HTML file is too large or couldn't be read" else htmlText = text
+        } else if (file.fileType == VaultFileType.IMAGE) {
             val decoded = withContext(Dispatchers.IO) { decodeSampled(decrypted) }
             decrypted.delete() // plaintext no longer needed once decoded
             if (decoded == null) error = "Couldn't display this image" else bitmap = decoded
@@ -75,6 +94,7 @@ fun MediaPlayerScreen(
     val currentError = error
     val currentBitmap = bitmap
     val currentFile = decryptedFile
+    val currentHtml = htmlText
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         when {
@@ -85,6 +105,27 @@ fun MediaPlayerScreen(
                 modifier = Modifier.padding(24.dp)
             )
             currentError != null -> Text(currentError, modifier = Modifier.padding(24.dp))
+            currentHtml != null -> AndroidView(
+                factory = { ctx ->
+                    WebView(ctx).apply {
+                        // Sandboxed: scripts run, but the page can't touch the network,
+                        // files, or other apps, and can't navigate away.
+                        settings.javaScriptEnabled = true
+                        settings.allowFileAccess = false
+                        settings.allowContentAccess = false
+                        settings.domStorageEnabled = false
+                        settings.blockNetworkLoads = true
+                        webViewClient = object : WebViewClient() {
+                            override fun shouldOverrideUrlLoading(
+                                view: WebView,
+                                request: WebResourceRequest
+                            ): Boolean = true
+                        }
+                        loadDataWithBaseURL(null, currentHtml, "text/html", "UTF-8", null)
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
             currentBitmap != null -> Image(
                 bitmap = currentBitmap.asImageBitmap(),
                 contentDescription = file.displayName,
@@ -126,3 +167,5 @@ private fun decodeSampled(file: File, maxDim: Int = 2048): Bitmap? {
     val options = BitmapFactory.Options().apply { inSampleSize = sample }
     return BitmapFactory.decodeFile(file.absolutePath, options)
 }
+
+private const val MAX_HTML_BYTES = 5L * 1024 * 1024

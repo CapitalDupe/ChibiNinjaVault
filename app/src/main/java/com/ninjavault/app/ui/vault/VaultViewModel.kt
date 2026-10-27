@@ -52,11 +52,19 @@ class VaultViewModel(context: Context) : ViewModel() {
     fun setSearchQuery(q: String) { searchQuery.value = q }
     fun setFolder(path: String) { currentFolder.value = path }
 
-    fun importFile(uri: Uri) {
+    fun importFile(uri: Uri, deleteOriginal: Boolean = false) {
         viewModelScope.launch {
             importMutex.withLock {
                 val (displayName, mimeType) = withContext(Dispatchers.IO) { queryMetadata(uri) }
                 repository.importFile(sourceUri = uri, displayName = displayName, mimeType = mimeType)
+                    .onSuccess {
+                        // Only ever after the encrypted copy is safely stored.
+                        if (deleteOriginal) {
+                            repository.deleteSourceFile(uri).onFailure {
+                                report("Imported \"$displayName\", but couldn't delete the original. Please delete it manually.")
+                            }
+                        }
+                    }
                     .onFailure { report("Couldn't import \"$displayName\": ${it.message ?: "unknown error"}") }
             }
         }

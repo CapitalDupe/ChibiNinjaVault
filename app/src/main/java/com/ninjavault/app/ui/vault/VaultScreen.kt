@@ -1,5 +1,7 @@
 package com.ninjavault.app.ui.vault
 
+import android.content.Context
+import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -12,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -36,6 +39,7 @@ fun VaultScreen(
     var pendingBulkDelete by remember { mutableStateOf(false) }
     var renameTarget by remember { mutableStateOf<VaultFileEntity?>(null) }
     var exportTarget by remember { mutableStateOf<VaultFileEntity?>(null) }
+    var deleteOriginal by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.messages.collect { snackbarHostState.showSnackbar(it) }
@@ -50,8 +54,8 @@ fun VaultScreen(
     BackHandler(enabled = selected.isNotEmpty()) { selected = emptySet() }
 
     val importLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenMultipleDocuments()
-    ) { uris -> uris.forEach { uri -> viewModel.importFile(uri) } }
+        OpenWritableDocuments()
+    ) { uris -> uris.forEach { uri -> viewModel.importFile(uri, deleteOriginal) } }
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("*/*")
@@ -108,6 +112,17 @@ fun VaultScreen(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(12.dp)
             )
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Delete original after import",
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(checked = deleteOriginal, onCheckedChange = { deleteOriginal = it })
+            }
 
             if (files.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -213,7 +228,7 @@ private fun VaultFileRow(
     var menuOpen by remember { mutableStateOf(false) }
 
     ListItem(
-        headlineContent = { Text(file.displayName) },
+        headlineContent = { Text(adxName(file.displayName)) },
         supportingContent = { Text("${file.fileType.name} · ${formatSize(file.sizeBytes)}") },
         leadingContent = { Icon(iconFor(file.fileType), contentDescription = null) },
         trailingContent = {
@@ -266,3 +281,12 @@ private fun formatSize(bytes: Long): String {
         else -> "$bytes B"
     }
 }
+
+/** Same picker, but asks for write access so the original can be deleted after a successful import. */
+private class OpenWritableDocuments : ActivityResultContracts.OpenMultipleDocuments() {
+    override fun createIntent(context: Context, input: Array<String>): Intent =
+        super.createIntent(context, input).addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+}
+
+/** Vault files are shown with the app's own .adx extension; the original name is kept for export/playback. */
+private fun adxName(name: String): String = name.substringBeforeLast('.', name) + ".adx"
