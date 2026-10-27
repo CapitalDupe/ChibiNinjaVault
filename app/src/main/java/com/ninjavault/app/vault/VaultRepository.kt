@@ -115,6 +115,7 @@ class VaultRepository(
                 context.contentResolver.openOutputStream(destination)?.use { output ->
                     FileInputStream(entity.encryptedPath).use { it.copyTo(output) }
                 } ?: error("Could not open export destination")
+                Unit
             }
         }
 
