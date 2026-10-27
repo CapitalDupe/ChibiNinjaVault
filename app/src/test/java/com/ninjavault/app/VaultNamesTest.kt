@@ -59,4 +59,21 @@ class VaultNamesTest {
         assertEquals("jpg", VaultNames.playbackExtension("image/jpeg", "no_extension"))
         assertEquals("", VaultNames.playbackExtension("application/octet-stream", "mystery"))
     }
+
+    @Test
+    fun `text-like files are detected and typed as documents`() {
+        for (name in listOf("data.json", "script.py", "app.js", "notes.txt", "README.md", "conf.yaml")) {
+            assertTrue(name, VaultNames.isText("application/octet-stream", name))
+            assertEquals(name, VaultFileType.DOCUMENT, VaultNames.typeFor("application/octet-stream", name))
+        }
+        assertTrue(VaultNames.isText("application/json", "x.adx"))
+    }
+
+    @Test
+    fun `binaries and html are not treated as text`() {
+        assertFalse(VaultNames.isText("application/x-msdownload", "setup.exe"))
+        assertFalse(VaultNames.isText("application/octet-stream", "setup.exe"))
+        assertEquals(VaultFileType.OTHER, VaultNames.typeFor("application/octet-stream", "setup.exe"))
+        assertFalse(VaultNames.isText("text/html", "page.html"))
+    }
 }

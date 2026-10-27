@@ -8,7 +8,16 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.Image
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.ui.text.font.FontFamily
+import com.ninjavault.app.vault.AppLockController
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
@@ -44,19 +53,27 @@ import java.io.File
 @Composable
 fun MediaPlayerScreen(
     file: VaultFileEntity,
-    viewModel: VaultViewModel
+    viewModel: VaultViewModel,
+    appLock: AppLockController? = null
 ) {
     val context = LocalContext.current
     var decryptedFile by remember(file.id) { mutableStateOf<File?>(null) }
     var bitmap by remember(file.id) { mutableStateOf<Bitmap?>(null) }
     var error by remember(file.id) { mutableStateOf<String?>(null) }
     var htmlText by remember(file.id) { mutableStateOf<String?>(null) }
+    var plainText by remember(file.id) { mutableStateOf<String?>(null) }
 
     // Derived from the stored MIME type first, then the name; a rename to "x.adx" can't break it.
     val effectiveType = file.effectiveType()
     val isHtml = VaultNames.isHtml(file.mimeType, file.displayName)
+    val isText = !isHtml && VaultNames.isText(file.mimeType, file.displayName)
 
-    val previewable = isHtml ||
+    // Explicit, user-requested export of a decrypted copy (for docs, executables, anything without a viewer).
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("*/*")
+    ) { uri -> if (uri != null) viewModel.exportFile(file, uri) }
+
+    val previewable = isHtml || isText ||
         effectiveType == VaultFileType.VIDEO ||
         effectiveType == VaultFileType.AUDIO ||
         effectiveType == VaultFileType.IMAGE
@@ -78,6 +95,10 @@ fun MediaPlayerScreen(
             }
             decrypted.delete()
             if (text == null) error = "This HTML file is too large or couldn't be read" else htmlText = text
+        } else if (isText) {
+            val text = withContext(Dispatchers.IO) { runCatching { readTextCapped(decrypted) }.getOrNull() }
+            decrypted.delete()
+            if (text == null) error = "This file couldn't be read as text" else plainText = text
         } else if (effectiveType == VaultFileType.IMAGE) {
             val decoded = withContext(Dispatchers.IO) { decodeSampled(decrypted) }
             decrypted.delete() // plaintext no longer needed once decoded
@@ -98,15 +119,28 @@ fun MediaPlayerScreen(
     val currentBitmap = bitmap
     val currentFile = decryptedFile
     val currentHtml = htmlText
+    val currentText = plainText
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         when {
-            !previewable -> Text(
-                "Preview isn't available for ${effectiveType.name.lowercase()} files.\n" +
-                    "Go back and use \"Export a copy\" from the file's menu.",
-                textAlign = TextAlign.Center,
+            !previewable -> Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(24.dp)
-            )
+            ) {
+                Text(
+                    "This file can't be previewed inside the vault.\n" +
+                        "Export a decrypted copy to open it with another app.",
+                    textAlign = TextAlign.Center
+                )
+                Button(
+                    onClick = {
+                        // The system file picker backgrounds the app; don't treat that as leaving the vault.
+                        appLock?.suppressNextBackgroundLock()
+                        exportLauncher.launch(file.displayName)
+                    },
+                    modifier = Modifier.padding(top = 16.dp)
+                ) { Text("Export a copy") }
+            }
             currentError != null -> Text(currentError, modifier = Modifier.padding(24.dp))
             currentHtml != null -> AndroidView(
                 factory = { ctx ->
@@ -129,6 +163,16 @@ fun MediaPlayerScreen(
                 },
                 modifier = Modifier.fillMaxSize()
             )
+            currentText != null -> SelectionContainer {
+                Text(
+                    currentText,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(12.dp)
+                )
+            }
             currentBitmap != null -> Image(
                 bitmap = currentBitmap.asImageBitmap(),
                 contentDescription = file.displayName,
@@ -172,3 +216,19 @@ private fun decodeSampled(file: File, maxDim: Int = 2048): Bitmap? {
 }
 
 private const val MAX_HTML_BYTES = 5L * 1024 * 1024
+private const val MAX_TEXT_BYTES = 1024 * 1024
+
+/** Reads at most [MAX_TEXT_BYTES] of [file] as UTF-8 and notes when the rest was cut off. */
+private fun readTextCapped(file: File): String {
+    val buffer = ByteArray(MAX_TEXT_BYTES)
+    var read = 0
+    file.inputStream().buffered().use { stream ->
+        while (read < MAX_TEXT_BYTES) {
+            val n = stream.read(buffer, read, MAX_TEXT_BYTES - read)
+            if (n < 0) break
+            read += n
+        }
+    }
+    val text = String(buffer, 0, read, Charsets.UTF_8)
+    return if (file.length() > MAX_TEXT_BYTES) text + "\n\n\u2026 truncated at 1 MB. Export a copy to see the whole file." else text
+}

@@ -29,7 +29,20 @@ object VaultNames {
         "pdf" to "application/pdf", "zip" to "application/zip",
         "html" to "text/html", "htm" to "text/html",
         "txt" to "text/plain", "doc" to "application/msword",
-        "docx" to "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        "docx" to "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "json" to "application/json", "xml" to "text/xml", "csv" to "text/csv", "md" to "text/markdown",
+        "js" to "text/javascript", "py" to "text/x-python", "exe" to "application/x-msdownload"
+    )
+
+    // Extensions that are plain text even when the picker says application/octet-stream.
+    private val TEXT_EXTENSIONS = setOf(
+        "txt", "json", "js", "mjs", "ts", "tsx", "jsx", "py", "md", "csv", "tsv", "xml", "yml", "yaml",
+        "log", "ini", "cfg", "conf", "toml", "kt", "java", "c", "cpp", "h", "sh", "bat", "ps1", "css",
+        "sql", "rb", "go", "rs", "php", "srt"
+    )
+    private val TEXT_MIMES = setOf(
+        "application/json", "application/xml", "application/javascript", "application/x-javascript",
+        "application/x-yaml", "application/x-sh", "application/x-python-code"
     )
 
     /** The name shown in the vault list: the original base name with the app's .adx extension. */
@@ -64,6 +77,13 @@ object VaultNames {
         return mimeForExtension(extensionOf(name)) ?: GENERIC_MIME
     }
 
+    /** Plain-text-like files (txt, json, py, js, ...) that the in-app viewer can show. HTML has its own viewer. */
+    fun isText(mimeType: String, name: String): Boolean {
+        val mime = resolveMime(mimeType, name)
+        if (mime == "text/html" || mime == "application/xhtml+xml") return false
+        return extensionOf(name) in TEXT_EXTENSIONS || mime.startsWith("text/") || mime in TEXT_MIMES
+    }
+
     fun isHtml(mimeType: String, name: String): Boolean {
         val mime = resolveMime(mimeType, name)
         return mime == "text/html" || mime == "application/xhtml+xml"
@@ -77,7 +97,7 @@ object VaultNames {
             mime.startsWith("audio/") -> VaultFileType.AUDIO
             mime == "application/pdf" -> VaultFileType.PDF
             mime == "application/zip" || mime == "application/x-zip-compressed" -> VaultFileType.ZIP
-            mime == "text/plain" || mime == "application/msword" ||
+            isText(mime, name) || mime == "application/msword" ||
                 mime.startsWith("application/vnd.openxmlformats-officedocument.wordprocessingml") -> VaultFileType.DOCUMENT
             else -> VaultFileType.OTHER
         }
