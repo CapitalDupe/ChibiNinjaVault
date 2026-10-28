@@ -24174,7 +24174,7 @@ void main() {
       this.el.energyFill.classList.toggle("cooling", cooling);
       this.el.energyFill.classList.toggle("ready", energy2 >= 50 && !odActive && !cooling);
       this.el.odHint.classList.toggle("ready", energy2 >= 50 && !odActive && !cooling);
-      this.el.odHint.textContent = cooling ? `\u8FC7\u8F7D\u51B7\u5374 ${Math.ceil(odCd2)}s` : "\u8FC7\u8F7D\u5C31\u7EEA \xB7 SHIFT";
+      this.el.odHint.textContent = cooling ? `Overdrive cooldown ${Math.ceil(odCd2)}s` : "Overdrive ready \xB7 SHIFT";
       if (this.el.dashBtn) {
         this.el.dashBtn.classList.toggle("ready", energy2 >= 50 && !odActive && !cooling);
         this.el.dashBtn.classList.toggle("cool", cooling || odActive);
@@ -24224,7 +24224,7 @@ void main() {
         el.classList.remove("on");
         return;
       }
-      el.innerHTML = `<div class="skill-slot" style="--c:#ff9a5c"><b>${sk.icon}</b><span>${sk.name}</span><em>\u6309 1/2/3 \u9009\u76EE\u6807</em></div>`;
+      el.innerHTML = `<div class="skill-slot" style="--c:#ff9a5c"><b>${sk.icon}</b><span>${sk.name}</span><em>Press 1/2/3 to target</em></div>`;
       el.classList.add("on");
     }
     // 当前生效的 buff / debuff
@@ -24275,12 +24275,12 @@ void main() {
       }
     }
     setDeath(type) {
-      this.el.deathLabel.textContent = type === "fall" ? "\u4F60\u5760\u5165\u4E86\u697C\u4E0E\u697C\u4E4B\u95F4\u7684\u9EC4\u660F" : "\u4F60\u649E\u4E0A\u4E86\u5929\u53F0\u4E0A\u7684\u969C\u788D\u7269";
+      this.el.deathLabel.textContent = type === "fall" ? "You fell between the rooftops" : "You hit a rooftop obstacle";
     }
     setFinal(dist2, coins2, best2, isNew) {
-      this.el.f1l.textContent = "\u5954\u8DD1\u8DDD\u79BB";
-      this.el.f2l.textContent = "\u82AF\u7247";
-      this.el.f3l.textContent = "\u6700\u4F73";
+      this.el.f1l.textContent = "DISTANCE";
+      this.el.f2l.textContent = "CHIPS";
+      this.el.f3l.textContent = "BEST";
       this.el.f1u.textContent = "m";
       this.el.f3u.textContent = "m";
       this.el.finalDist.textContent = dist2 | 0;
@@ -24293,13 +24293,13 @@ void main() {
       this.el.deathLabel.textContent = place === 1 ? "\u51A0\u519B \xB7 \u7B2C\u4E00\u4E2A\u51B2\u8FC7\u7EC8\u70B9\u7EBF" : `\u7B2C ${place} \u540D \xB7 \u53EA\u5DEE\u4E00\u70B9`;
       this.el.f1l.textContent = "\u540D\u6B21";
       this.el.f2l.textContent = "\u7528\u65F6";
-      this.el.f3l.textContent = "\u82AF\u7247";
+      this.el.f3l.textContent = "CHIPS";
       this.el.f1u.textContent = "";
       this.el.f3u.textContent = "";
       this.el.finalDist.textContent = `${place}/${total}`;
       this.el.finalCoins.textContent = timeStr;
       this.el.finalBest.textContent = coins2;
-      this.el.newRecord.textContent = "\u2605 \u6700\u4F73\u7528\u65F6 \u2605";
+      this.el.newRecord.textContent = "\u2605 BEST\u7528\u65F6 \u2605";
       this.el.newRecord.classList.toggle("visible", !!isBest);
     }
     toast(msg, ms = 1800) {
@@ -24644,7 +24644,7 @@ void main() {
 
   // src/race.js
   var RACE_LEN = 2200;
-  var AI_NAMES = ["\u9713\u8679", "\u8D64\u98CE", "\u591C\u822A"];
+  var AI_NAMES = ["NEON", "REDFLARE", "NIGHTRUN"];
   var AI_COLORS = [7329535, 16756838, 12160255];
   function nameTag(text, color) {
     const c = document.createElement("canvas");
@@ -24863,7 +24863,7 @@ void main() {
     // 名次表：按赛道进度降序，相差的米数直接给玩家看
     rows(playerZ) {
       const list = [
-        { name: "\u4F60", z: playerZ, me: true, color: "#6fd6ff", done: false, id: null },
+        { name: "YOU", z: playerZ, me: true, color: "#6fd6ff", done: false, id: null },
         ...this.opponents.map((o) => ({
           name: o.name,
           id: o.id,
@@ -24880,7 +24880,7 @@ void main() {
         id: r.id,
         me: r.me,
         color: r.color,
-        gap: r.me ? "\u2014" : r.done ? "\u5B8C\u8D5B" : `${r.z > playerZ ? "+" : ""}${Math.round(r.z - playerZ)}m`
+        gap: r.me ? "\u2014" : r.done ? "FINISHED" : `${r.z > playerZ ? "+" : ""}${Math.round(r.z - playerZ)}m`
       }));
     }
     setVisible(on) {
@@ -24890,12 +24890,12 @@ void main() {
 
   // src/powerups.js
   var SKILLS = {
-    gale: { name: "\u75BE\u98CE", icon: "\u{1F32C}", self: true, dur: 8, color: 8250367, desc: "\u901F\u5EA6 +22% \xB7 8s" },
-    shield: { name: "\u62A4\u76FE", icon: "\u{1F6E1}", self: true, dur: 10, color: 9109441, desc: "\u514D\u75AB\u4E00\u6B21\u649E\u51FB/\u5760\u843D \xB7 10s" },
-    magnet: { name: "\u78C1\u529B", icon: "\u{1F9F2}", self: true, dur: 8, color: 16765565, desc: "\u5927\u8303\u56F4\u5438\u53D6\u82AF\u7247 \xB7 8s" },
-    headwind: { name: "\u9006\u98CE", icon: "\u{1F32A}", self: false, dur: 4, color: 16751196, desc: "\u76EE\u6807\u51CF\u901F 28% \xB7 4s" },
-    blackout: { name: "\u65AD\u7535", icon: "\u{1F50C}", self: false, dur: 5, color: 13215487, desc: "\u76EE\u6807\u80FD\u91CF\u6E05\u96F6 \xB7 5s \u65E0\u6CD5\u8FC7\u8F7D" },
-    lockjump: { name: "\u9501\u8DF3", icon: "\u26D3", self: false, dur: 4, color: 16747146, desc: "\u76EE\u6807\u65E0\u6CD5\u8DF3\u8DC3 \xB7 4s" }
+    gale: { name: "TAILWIND", icon: "🌬", self: true, dur: 8, color: 8250367, desc: "\u901F\u5EA6 +22% \xB7 8s" },
+    shield: { name: "SHIELD", icon: "🛡", self: true, dur: 10, color: 9109441, desc: "\u514D\u75AB\u4E00\u6B21\u649E\u51FB/\u5760\u843D \xB7 10s" },
+    magnet: { name: "MAGNET", icon: "🧲", self: true, dur: 8, color: 16765565, desc: "\u5927\u8303\u56F4\u5438\u53D6CHIPS \xB7 8s" },
+    headwind: { name: "HEADWIND", icon: "🌪", self: false, dur: 4, color: 16751196, desc: "\u76EE\u6807\u51CF\u901F 28% \xB7 4s" },
+    blackout: { name: "BLACKOUT", icon: "🔌", self: false, dur: 5, color: 13215487, desc: "\u76EE\u6807\u80FD\u91CF\u6E05\u96F6 \xB7 5s \u65E0\u6CD5\u8FC7\u8F7D" },
+    lockjump: { name: "JUMP LOCK", icon: "⛓", self: false, dur: 4, color: 16747146, desc: "\u76EE\u6807\u65E0\u6CD5\u8DF3\u8DC3 \xB7 4s" }
   };
   var SKILL_KEYS = Object.keys(SKILLS);
   var BOX_FIRST = 220;
@@ -25252,7 +25252,7 @@ void main() {
       this.code = String(code || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
       if (this.code.length !== 6) throw new Error("\u623F\u95F4\u7801\u662F 6 \u4F4D");
       await this._open();
-      let lastErr = new Error("\u623F\u95F4\u4E0D\u5B58\u5728\uFF0C\u6216\u623F\u4E3B\u5DF2\u7ECF\u79BB\u5F00");
+      let lastErr = new Error("\u623F\u95F4\u4E0D\u5B58\u5728\uFF0C\u6216Host\u5DF2\u7ECF\u79BB\u5F00");
       for (let attempt = 0; attempt < 3; attempt++) {
         this._send({ t: "join", id: this.id, name: this.name });
         try {
@@ -25472,7 +25472,7 @@ void main() {
     hud.buffs([]);
     hud.blackout(0);
     netSendT = 0;
-    player.onShieldBreak = (how) => hud.toast(how === "fall" ? "\u{1F6E1} \u62A4\u76FE\u62B5\u6D88\u4E86\u5760\u843D" : "\u{1F6E1} \u62A4\u76FE\u6321\u4F4F\u4E86\u649E\u51FB", 1500);
+    player.onShieldBreak = (how) => hud.toast(how === "fall" ? "🛡 SHIELD\u62B5\u6D88\u4E86\u5760\u843D" : "🛡 SHIELD\u6321\u4F4F\u4E86\u649E\u51FB", 1500);
     baseSpeed = 12;
     speed = 12;
     dist = 0;
@@ -25583,12 +25583,12 @@ void main() {
   }
   function buffList() {
     const out = [];
-    if (player.buffUpT > 0) out.push({ icon: "\u{1F32C}", name: "\u75BE\u98CE", t: player.buffUpT, color: "#7de3ff" });
-    if (player.buffDownT > 0) out.push({ icon: "\u{1F32A}", name: "\u9006\u98CE", t: player.buffDownT, color: "#ff9a5c" });
-    if (player.shieldT > 0) out.push({ icon: "\u{1F6E1}", name: "\u62A4\u76FE", t: player.shieldT, color: "#8affc1" });
-    if (player.magnetT > 0) out.push({ icon: "\u{1F9F2}", name: "\u78C1\u529B", t: player.magnetT, color: "#ffd27d" });
-    if (player.noJumpT > 0) out.push({ icon: "\u26D3", name: "\u9501\u8DF3", t: player.noJumpT, color: "#ff8a8a" });
-    if (player.noFuelT > 0) out.push({ icon: "\u{1F50C}", name: "\u65AD\u7535", t: player.noFuelT, color: "#c9a6ff" });
+    if (player.buffUpT > 0) out.push({ icon: "🌬", name: "TAILWIND", t: player.buffUpT, color: "#7de3ff" });
+    if (player.buffDownT > 0) out.push({ icon: "🌪", name: "HEADWIND", t: player.buffDownT, color: "#ff9a5c" });
+    if (player.shieldT > 0) out.push({ icon: "🛡", name: "SHIELD", t: player.shieldT, color: "#8affc1" });
+    if (player.magnetT > 0) out.push({ icon: "🧲", name: "MAGNET", t: player.magnetT, color: "#ffd27d" });
+    if (player.noJumpT > 0) out.push({ icon: "⛓", name: "JUMP LOCK", t: player.noJumpT, color: "#ff8a8a" });
+    if (player.noFuelT > 0) out.push({ icon: "🔌", name: "BLACKOUT", t: player.noFuelT, color: "#c9a6ff" });
     return out;
   }
   function pickupSkill(box) {
@@ -25608,14 +25608,14 @@ void main() {
     } else {
       atkSkill = box.skill;
       hud.skill({ icon: s.icon, name: s.name });
-      hud.toast(`${s.icon} \u62FF\u5230 ${s.name} \xB7 \u6309 1/2/3 \u9009\u76EE\u6807`, 1900);
+      hud.toast(`${s.icon} \u62FF\u5230 ${s.name} \xB7 Press 1/2/3 to target`, 1900);
     }
   }
   function castAttack(place) {
     if (mode !== "race" || !atkSkill || !player.alive) return;
     const row = race.rows(player.pos.z).find((r) => r.place === place);
     if (!row || row.me) {
-      hud.toast("\u8981\u9009\u5BF9\u624B\u7684\u540D\u6B21", 1e3);
+      hud.toast("\u8981\u9009Opponent\u7684\u540D\u6B21", 1e3);
       return;
     }
     const o = race.opponents.find((x) => x.id === row.id) || race.opponents.find((x) => x.name === row.name);
@@ -25642,7 +25642,7 @@ void main() {
     } else if (kind === "lockjump") {
       player.noJumpT = s.dur;
     }
-    hud.toast(`\u88AB ${fromName || "\u5BF9\u624B"} \u7684 ${s.icon}${s.name} \u547D\u4E2D`, 1700);
+    hud.toast(`\u88AB ${fromName || "Opponent"} \u7684 ${s.icon}${s.name} \u547D\u4E2D`, 1700);
     hud.hit(0.9);
     audio.crash();
   }
@@ -25678,11 +25678,11 @@ void main() {
     lobbyEl.code.textContent = net.code || "------";
     lobbyEl.list.innerHTML = net.players.map((p, i) => {
       const me = p.id === net.id;
-      const tag = i === 0 ? "\u623F\u4E3B" : "";
-      return `<div class="lobby-player${me ? " me" : ""}" style="--c:${colors[i % 3]}"><i></i><span>${esc(p.name)}</span><em>${tag}${me ? tag ? " \xB7 \u4F60" : "\u4F60" : ""}</em></div>`;
+      const tag = i === 0 ? "Host" : "";
+      return `<div class="lobby-player${me ? " me" : ""}" style="--c:${colors[i % 3]}"><i></i><span>${esc(p.name)}</span><em>${tag}${me ? tag ? " \xB7 YOU" : "YOU" : ""}</em></div>`;
     }).join("");
     lobbyEl.start.style.display = net.isHost ? "" : "none";
-    lobbyEl.start.textContent = net.isHost ? "\u5F00\u59CB\u6BD4\u8D5B" : "\u7B49\u5F85\u623F\u4E3B\u5F00\u59CB";
+    lobbyEl.start.textContent = net.isHost ? "Start race" : "\u7B49\u5F85Host\u5F00\u59CB";
   }
   function onNetEvent(type, data) {
     if (type === "roster") {
@@ -25700,7 +25700,7 @@ void main() {
     if (type === "skill") {
       if (!net || data.to !== net.id) return;
       const from = net.players.find((p) => p.id === data.from);
-      hitBy(data.kind, from ? from.name : "\u5BF9\u624B");
+      hitBy(data.kind, from ? from.name : "Opponent");
       return;
     }
     if (type === "start") {
@@ -25711,7 +25711,7 @@ void main() {
       return;
     }
     if (type === "full") {
-      lobbyStatus("\u623F\u95F4\u5DF2\u6EE1\uFF08\u6700\u591A 3 \u4EBA\uFF09");
+      lobbyStatus("Room is full (3 players max)");
       return;
     }
     if (type === "left") {
@@ -25728,7 +25728,7 @@ void main() {
       if (mode === "race" && netRace) {
         for (const o of race.opponents) if (o.remote) race.takeover(o.id);
         netRace = false;
-        hud.toast("\u7F51\u7EDC\u65AD\u5F00 \xB7 \u5BF9\u624B\u8F6C\u4E3A AI \u6258\u7BA1", 2600);
+        hud.toast("\u7F51\u7EDC\u65AD\u5F00 \xB7 Opponent\u8F6C\u4E3A AI \u6258\u7BA1", 2600);
       }
     }
   }
@@ -25738,7 +25738,7 @@ void main() {
   async function doCreate() {
     const name = (lobbyEl.name.value || "").trim().slice(0, 8) || "\u73A9\u5BB6";
     localStorage.setItem("sr-name", name);
-    lobbyStatus("\u6B63\u5728\u8FDE\u63A5\u8054\u673A\u670D\u52A1\u5668\u2026");
+    lobbyStatus("Connecting to online server…");
     const n = new Net();
     n.onEvent = onNetEvent;
     try {
@@ -25750,7 +25750,7 @@ void main() {
       lobbyStatus("");
     } catch (e) {
       n.leave();
-      lobbyStatus(e.message || "\u8FDE\u63A5\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u518D\u8BD5");
+      lobbyStatus(e.message || "Connection failed. Try again later.");
     }
   }
   async function doJoin() {
@@ -25761,7 +25761,7 @@ void main() {
       return;
     }
     localStorage.setItem("sr-name", name);
-    lobbyStatus("\u6B63\u5728\u52A0\u5165\u2026");
+    lobbyStatus("Joining…");
     const n = new Net();
     n.onEvent = onNetEvent;
     try {
@@ -25773,7 +25773,7 @@ void main() {
       lobbyStatus("");
     } catch (e) {
       n.leave();
-      lobbyStatus(e.message || "\u52A0\u5165\u5931\u8D25");
+      lobbyStatus(e.message || "Could not join");
     }
   }
   function bindUI(id, fn) {
@@ -25790,7 +25790,7 @@ void main() {
   bindUI("joinRoomBtn", doJoin);
   bindUI("roomStartBtn", () => {
     if (!net || !net.isHost) {
-      lobbyStatus("\u53EA\u6709\u623F\u4E3B\u80FD\u5F00\u59CB\u6BD4\u8D5B");
+      lobbyStatus("\u53EA\u6709Host\u80FDStart race");
       return;
     }
     net.startRace(3.4);
@@ -25836,7 +25836,7 @@ void main() {
   input.onMute = () => {
     audio.init();
     audio.setMuted(!audio.muted);
-    hud.toast(audio.muted ? "\u{1F507} \u5DF2\u9759\u97F3" : "\u{1F50A} \u5DF2\u5F00\u542F\u58F0\u97F3", 1200);
+    hud.toast(audio.muted ? "🔇 Muted" : "🔊 Sound on", 1200);
   };
   var fsBtn = document.getElementById("fsBtn");
   var fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
@@ -25856,14 +25856,14 @@ void main() {
         document.webkitExitFullscreen();
       }
     } catch (e) {
-      hud.toast("\u5F53\u524D\u6D4F\u89C8\u5668\u4E0D\u652F\u6301\u5168\u5C4F", 1400);
+      hud.toast("This browser does not support fullscreen", 1400);
     }
   }
   function syncFsBtn() {
     if (!fsBtn) return;
     fsBtn.textContent = fsEl() ? "\u26F6" : "\u26F6";
     fsBtn.classList.toggle("on", !!fsEl());
-    fsBtn.title = fsEl() ? "\u9000\u51FA\u5168\u5C4F\uFF08F\uFF09" : "\u5168\u5C4F\uFF08F\uFF09";
+    fsBtn.title = fsEl() ? "Exit fullscreen (F)" : "Fullscreen (F)";
   }
   fsBtn.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -25940,18 +25940,18 @@ void main() {
     if (odCd > 0) odCd -= dt;
     if (running && actions.dash) {
       if (player.noFuelT > 0) {
-        hud.toast("\u26A1 \u65AD\u7535\u4E2D \xB7 \u65E0\u6CD5\u8FC7\u8F7D", 1e3);
+        hud.toast("\u26A1 BLACKOUT\u4E2D \xB7 \u65E0\u6CD5\u8FC7\u8F7D", 1e3);
       } else if (energy >= 50 && odT <= 0 && odCd <= 0) {
         odT = 4;
         odCd = 10;
         energy -= 50;
         audio.overdrive();
-        hud.toast("\u26A1 \u8FC7\u8F7D\u51B2\u523A", 1400);
+        hud.toast("⚡ OVERDRIVE", 1400);
         fx.burst(player.pos, 9427199, { count: 26, speed: 6, up: 3, life: 0.6, spread: 0.8 });
       } else if (odCd > 0) {
-        hud.toast(`\u8FC7\u8F7D\u51B7\u5374\u4E2D \xB7 ${Math.ceil(odCd)}s`, 900);
+        hud.toast(`Overdrive cooldown\u4E2D \xB7 ${Math.ceil(odCd)}s`, 900);
       } else {
-        hud.toast("\u80FD\u91CF\u4E0D\u8DB3 \xB7 \u6536\u96C6\u82AF\u7247", 900);
+        hud.toast("\u80FD\u91CF\u4E0D\u8DB3 \xB7 \u6536\u96C6CHIPS", 900);
       }
     }
     if (odT > 0) {
@@ -25963,7 +25963,7 @@ void main() {
       else dist += speed * dt;
       player.update(dt, input, city, speed, actions, odT > 0);
       const gliding = player.glideT > 0;
-      if (gliding && !glideWas) hud.toast(isCoarse ? "\u4E0B\u62C9\u53EF\u7ACB\u5373\u843D\u5730" : "S / \u2193 \u53EF\u7ACB\u5373\u843D\u5730", 1200);
+      if (gliding && !glideWas) hud.toast(isCoarse ? "Swipe down to slam" : "S / ↓ to slam", 1200);
       glideWas = gliding;
     } else if (mode === "run") {
       player.update(dt, input, city, speed, actions, false);
@@ -25993,7 +25993,7 @@ void main() {
           streak = Math.min(streak + 1, 5);
           streakT = 1.2;
           fx.burst(c, 16762726, { count: 10, speed: 3.5, up: 2, life: 0.5, spread: 0.3 });
-          if (energy >= 50 && energy < 62) hud.toast("\u8FC7\u8F7D\u5C31\u7EEA \xB7 SHIFT", 1400);
+          if (energy >= 50 && energy < 62) hud.toast("Overdrive ready \xB7 SHIFT", 1400);
         }
       }
       if (odT > 0) {
@@ -26014,7 +26014,7 @@ void main() {
     if (mode === "run" && daylight.phase !== lastPhase) {
       lastPhase = daylight.phase;
       hud.toast(
-        ["", "\u843D\u65E5\u66F4\u4F4E\u4E86\u4E00\u70B9", "\u4F59\u6656\u892A\u53BB \xB7 \u57CE\u5E02\u4EAE\u706F", "\u84DD\u8C03\u65F6\u523B \xB7 \u9713\u8679\u4EAE\u8D77"][daylight.phase] || "",
+        ["", "\u843D\u65E5\u66F4\u4F4E\u4E86\u4E00\u70B9", "\u4F59\u6656\u892A\u53BB \xB7 \u57CE\u5E02\u4EAE\u706F", "\u84DD\u8C03\u65F6\u523B \xB7 NEON\u4EAE\u8D77"][daylight.phase] || "",
         1600
       );
     }

@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <meta name="theme-color" content="#120b08" />
-<title>天际疾行 · Skyline Rush</title>
+<title>Skyline Rush</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🌆</text></svg>" />
 <link rel="stylesheet" href="./styles/main.css" />
 </head>
@@ -19,12 +19,12 @@
     <div class="hud-left">
       <div class="brand"><b>SKYLINE</b><span>RUSH</span></div>
       <div class="dist-wrap"><span id="dist">0</span><i>m</i></div>
-      <div class="best">最佳 <b id="best">0</b> m</div>
+      <div class="best">BEST <b id="best">0</b> m</div>
     </div>
     <div class="hud-right">
       <div class="chip-row"><span class="chip-ico"></span><b id="coins">0</b></div>
       <div class="energy"><div id="energyFill"></div></div>
-      <div id="odHint">SHIFT · 过载冲刺</div>
+      <div id="odHint">SHIFT · OVERDRIVE</div>
     </div>
   </div>
 
@@ -39,40 +39,40 @@
   <div id="title" class="screen visible">
     <div class="panel title-panel">
       <div class="kicker">SUNSET ROOFTOP PARKOUR</div>
-      <h1>天际疾行</h1>
+      <h1>Skyline Rush</h1>
       <div class="sub">SKYLINE RUSH</div>
-      <p class="desc">黄昏雨后，你在城市之巅朝着落日狂奔。<br/>跨越楼缝、钻过横梁、收集芯片，释放过载冲刺。</p>
+      <p class="desc">Race across rain-soaked rooftops toward the sunset.<br/>Leap gaps, slide under beams, collect chips, and unleash overdrive.</p>
       <div class="btn-row">
-        <button id="startBtn" class="btn primary">开始奔跑</button>
-        <button id="startRaceBtn" class="btn ghost">竞速赛 · 3 人</button>
+        <button id="startBtn" class="btn primary">START RUNNING</button>
+        <button id="startRaceBtn" class="btn ghost">RACE · 3 PLAYERS</button>
       </div>
       <div class="btn-row">
-        <button id="onlineBtn" class="btn ghost wide">联机 · 和朋友比一场</button>
+        <button id="onlineBtn" class="btn ghost wide">ONLINE · RACE A FRIEND</button>
       </div>
       <div class="keys">
-        <div class="key-row"><span class="kbd">A</span><span class="kbd">D</span><em>左右移动</em></div>
-        <div class="key-row"><span class="kbd wide">SPACE</span><em>跳跃</em></div>
-        <div class="key-row"><span class="kbd">S</span><em>滑铲 / 空中下压</em></div>
-        <div class="key-row"><span class="kbd">SHIFT</span><em>过载冲刺（耗能 50）</em></div>
-        <div class="key-row"><span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span><em>对第 N 名释放技能</em></div>
-        <div class="key-row"><span class="kbd">Esc</span><em>暂停</em><span class="kbd">M</span><em>静音</em></div>
+        <div class="key-row"><span class="kbd">A</span><span class="kbd">D</span><em>Move left / right</em></div>
+        <div class="key-row"><span class="kbd wide">SPACE</span><em>Jump</em></div>
+        <div class="key-row"><span class="kbd">S</span><em>Slide / air slam</em></div>
+        <div class="key-row"><span class="kbd">SHIFT</span><em>Overdrive (costs 50 energy)</em></div>
+        <div class="key-row"><span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span><em>Use skill on rank N</em></div>
+        <div class="key-row"><span class="kbd">Esc</span><em>PAUSED</em><span class="kbd">M</span><em>Mute</em></div>
       </div>
-      <div class="hint">手机：<b>左右滑动转向</b> · <b>上滑跳跃</b> · <b>下滑滑铲</b> · 右下角冲刺</div>
+      <div class="hint">MOBILE:<b>Swipe left / right to steer</b> · <b>Swipe up to jump</b> · <b>Swipe down to slide</b> · Dash button at bottom-right</div>
     </div>
   </div>
 
   <div id="over" class="screen">
     <div class="panel over-panel">
-      <div id="deathLabel" class="death-label">你坠入了楼与楼之间的黄昏</div>
+      <div id="deathLabel" class="death-label">You fell between the rooftops</div>
       <div class="final-grid">
-        <div class="final-cell"><i id="f1l">奔跑距离</i><b><span id="finalDist">0</span><em id="f1u">m</em></b></div>
-        <div class="final-cell"><i id="f2l">芯片</i><b id="finalCoins">0</b></div>
-        <div class="final-cell"><i id="f3l">最佳</i><b><span id="finalBest">0</span><em id="f3u">m</em></b></div>
+        <div class="final-cell"><i id="f1l">DISTANCE</i><b><span id="finalDist">0</span><em id="f1u">m</em></b></div>
+        <div class="final-cell"><i id="f2l">CHIPS</i><b id="finalCoins">0</b></div>
+        <div class="final-cell"><i id="f3l">BEST</i><b><span id="finalBest">0</span><em id="f3u">m</em></b></div>
       </div>
-      <div id="newRecord" class="new-record">★ 新纪录 ★</div>
+      <div id="newRecord" class="new-record">★ NEW RECORD ★</div>
       <div class="btn-row">
-        <button id="retryBtn" class="btn primary">再跑一次</button>
-        <button id="homeBtn" class="btn ghost">回到首页</button>
+        <button id="retryBtn" class="btn primary">RUN AGAIN</button>
+        <button id="homeBtn" class="btn ghost">MAIN MENU</button>
       </div>
     </div>
   </div>
@@ -80,37 +80,37 @@
   <div id="lobby" class="screen">
     <div class="panel lobby-panel">
       <div class="kicker">ONLINE RACE</div>
-      <h2>联机竞速</h2>
+      <h2>ONLINE RACE</h2>
       <div id="lobbySetup" class="lobby-setup">
         <input id="nameInput" class="lobby-input" maxlength="8" placeholder="你的名字" />
-        <button id="createRoomBtn" class="btn primary">创建房间</button>
+        <button id="createRoomBtn" class="btn primary">CREATE ROOM</button>
         <div class="lobby-join">
           <input id="codeInput" class="lobby-input code" maxlength="6" placeholder="房间码" autocomplete="off" />
-          <button id="joinRoomBtn" class="btn ghost">加入</button>
+          <button id="joinRoomBtn" class="btn ghost">JOIN</button>
         </div>
       </div>
       <div id="lobbyRoom" class="lobby-room">
-        <div class="lobby-code">房间码 <b id="roomCode">------</b></div>
+        <div class="lobby-code">ROOM CODE <b id="roomCode">------</b></div>
         <div id="lobbyList" class="lobby-list"></div>
         <div class="btn-row">
-          <button id="roomStartBtn" class="btn primary">开始比赛</button>
-          <button id="roomLeaveBtn" class="btn ghost">离开</button>
+          <button id="roomStartBtn" class="btn primary">START RACE</button>
+          <button id="roomLeaveBtn" class="btn ghost">LEAVE</button>
         </div>
-        <div class="lobby-hint">最多 3 人 · 好友输入房间码即可加入 · 中途掉线由 AI 接管</div>
+        <div class="lobby-hint">Up to 3 players · Friends join with the room code · AI takes over if someone disconnects</div>
       </div>
       <div id="lobbyStatus" class="lobby-status"></div>
       <div class="btn-row">
-        <button id="lobbyBackBtn" class="btn ghost">返回</button>
+        <button id="lobbyBackBtn" class="btn ghost">BACK</button>
       </div>
     </div>
   </div>
 
   <div id="pause" class="screen">
     <div class="panel pause-panel">
-      <h2>已暂停</h2>
+      <h2>PAUSED</h2>
       <div class="btn-row">
-        <button id="resumeBtn" class="btn primary">继续</button>
-        <button id="quitBtn" class="btn ghost">回到首页</button>
+        <button id="resumeBtn" class="btn primary">RESUME</button>
+        <button id="quitBtn" class="btn ghost">MAIN MENU</button>
       </div>
     </div>
   </div>
@@ -118,41 +118,49 @@
   <div id="touchArea"></div>
   <div id="touchUI">
     <div id="gestureHint" class="gesture-hint">
-      <div><b>↔</b>滑动转向</div>
-      <div><b>↑</b>跳跃</div>
-      <div><b>↓</b>滑铲</div>
+      <div><b>↔</b>Swipe to steer</div>
+      <div><b>↑</b>Jump</div>
+      <div><b>↓</b>Slide</div>
     </div>
     <div id="btnDash" class="tdash">
       <span class="tdash-ico">⚡</span>
-      <span class="tdash-lbl">冲刺</span>
+      <span class="tdash-lbl">Dash</span>
     </div>
   </div>
 
-  <button id="fsBtn" class="fs-btn" aria-label="切换全屏" title="全屏（F）">⛶</button>
+  <button id="fsBtn" class="fs-btn" aria-label="Toggle fullscreen" title="Fullscreen (F)">⛶</button>
 
-  <div id="rotateHint"><b>↻</b>横屏游玩体验更佳</div>
+  <div id="rotateHint"><b>↻</b>Rotate your phone to landscape for the best experience</div>
 </div>
 <script src="./assets/game.js"></script>
 <script>
-/* Forward completed swipe gestures to ChibiNinjaVault's existing unlock logic. */
+/* Capture gameplay swipes at document level so every touch target reaches the vault matcher. */
 (() => {
   const area = document.getElementById("touchArea");
   if (!area) return;
-  let start = null;
-  area.addEventListener("touchstart", (event) => {
-    const t = event.changedTouches && event.changedTouches[0];
-    if (t) start = { x: t.clientX, y: t.clientY };
-  }, { passive: true });
-  area.addEventListener("touchend", (event) => {
-    const t = event.changedTouches && event.changedTouches[0];
-    if (!start || !t || !window.NinjaBridge) { start = null; return; }
-    const dx = t.clientX - start.x, dy = t.clientY - start.y;
+  let start = null, lastSentAt = 0;
+  const point = event => event.changedTouches && event.changedTouches.length ? event.changedTouches[0] : null;
+  document.addEventListener("touchstart", event => {
+    if (!area.classList.contains("on")) { start = null; return; }
+    const t = point(event);
+    start = t ? { x: t.clientX, y: t.clientY, target: event.target } : null;
+  }, { passive: true, capture: true });
+  document.addEventListener("touchend", event => {
+    if (!start) return;
+    const t = point(event), origin = start;
     start = null;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) < 28) return;
-    try {
-      window.NinjaBridge.onSwipe(Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? "left" : "right") : (dy < 0 ? "up" : "down"));
-    } catch (_) {}
-  }, { passive: true });
+    if (!t || !area.classList.contains("on")) return;
+    if (origin.target && origin.target.closest && origin.target.closest("#btnDash, #fsBtn")) return;
+    const dx = t.clientX - origin.x, dy = t.clientY - origin.y;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+    const now = Date.now();
+    if (now - lastSentAt < 80) return;
+    lastSentAt = now;
+    const direction = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? "left" : "right") : (dy < 0 ? "up" : "down");
+    try { if (window.NinjaBridge && typeof window.NinjaBridge.onSwipe === "function") window.NinjaBridge.onSwipe(direction); }
+    catch (error) { console.warn("Vault swipe bridge failed", error); }
+  }, { passive: true, capture: true });
+  document.addEventListener("touchcancel", () => { start = null; }, { passive: true, capture: true });
 })();
 </script>
 </body>
