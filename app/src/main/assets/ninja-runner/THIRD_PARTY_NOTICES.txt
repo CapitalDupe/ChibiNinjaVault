@@ -36,5 +36,4 @@ Gameplay reference
 Subway Runners / SubwaySurfersRGB by pantharev:
 https://github.com/pantharev/SubwaySurfersRGB
 Its README describes an MIT license, but no standalone LICENSE file was present when inspected.
-This Android implementation uses an original, self-contained Three.js scene and does not copy that
-repository's source files or assets.
+Skyline Rush is bundled into the Android app at app/src/main/assets/ninja-runner. Its game bundle includes Three.js r169 and is distributed under the MIT license; see SKYLINE_RUSH_LICENSE.txt. Source: https://github.com/zzuli-ljz/skyline-rush. The existing three.min.js remains for other app content but is not loaded by Skyline Rush.

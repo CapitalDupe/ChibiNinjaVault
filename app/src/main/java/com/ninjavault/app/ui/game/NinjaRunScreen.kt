@@ -53,7 +53,7 @@ fun NinjaRunScreen(
                 setBackgroundColor(AndroidColor.rgb(7, 12, 25))
                 setLayerType(View.LAYER_TYPE_HARDWARE, null)
                 settings.javaScriptEnabled = true
-                settings.domStorageEnabled = false
+                settings.domStorageEnabled = true
                 settings.allowFileAccess = true
                 settings.allowContentAccess = false
                 // The only loaded document is our bundled, trusted game asset.
