@@ -24299,7 +24299,7 @@ void main() {
       this.el.finalDist.textContent = `${place}/${total}`;
       this.el.finalCoins.textContent = timeStr;
       this.el.finalBest.textContent = coins2;
-      this.el.newRecord.textContent = "\u2605 BESTTIME \u2605";
+      this.el.newRecord.textContent = "★ BEST TIME ★";
       this.el.newRecord.classList.toggle("visible", !!isBest);
     }
     toast(msg, ms = 1800) {
@@ -25615,7 +25615,7 @@ void main() {
     if (mode !== "race" || !atkSkill || !player.alive) return;
     const row = race.rows(player.pos.z).find((r) => r.place === place);
     if (!row || row.me) {
-      hud.toast("\u8981\u9009Opponent\u7684RANK", 1e3);
+      hud.toast("Choose an opponent\u2019s rank", 1e3);
       return;
     }
     const o = race.opponents.find((x) => x.id === row.id) || race.opponents.find((x) => x.name === row.name);
@@ -25623,7 +25623,7 @@ void main() {
     const s = SKILLS[atkSkill];
     race.applySkill(o, atkSkill);
     if (net && netRace && net.ready && o.remote) net.sendSkill(o.id, atkSkill);
-    hud.toast(`${s.icon} ${s.name} \u2192 ${o.name}`, 1500);
+    hud.toast(`${s.icon} ${s.name} → ${o.name}`, 1500);
     audio.ui();
     atkSkill = null;
     hud.skill(null);
@@ -25642,7 +25642,7 @@ void main() {
     } else if (kind === "lockjump") {
       player.noJumpT = s.dur;
     }
-    hud.toast(`} \u7684 ${s.icon}${s.name} \u547D\u4E2D"Opponent"} \u7684 ${s.icon}${s.name} \u547D\u4E2D`, 1700);
+    hud.toast(`${fromName || "Opponent"} hit you with ${s.icon}${s.name}`, 1700);
     hud.hit(0.9);
     audio.crash();
   }
