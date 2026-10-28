@@ -106,9 +106,14 @@ class SecurePrefs(context: Context) : LockoutStore {
         get() = prefs.getBoolean("haptics_enabled", true)
         set(value) = prefs.edit().putBoolean("haptics_enabled", value).apply()
 
+    // Kept for compatibility with existing installs; new selections use vaultColorTheme.
     var darkTheme: Boolean
         get() = prefs.getBoolean("dark_theme", true)
         set(value) = prefs.edit().putBoolean("dark_theme", value).apply()
+
+    var vaultColorTheme: String
+        get() = prefs.getString("vault_color_theme", "SHADOW_NINJA") ?: "SHADOW_NINJA"
+        set(value) = prefs.edit().putString("vault_color_theme", value).apply()
 
     /**
      * Full local reset: clears all preferences. The vault's own Keystore key and
