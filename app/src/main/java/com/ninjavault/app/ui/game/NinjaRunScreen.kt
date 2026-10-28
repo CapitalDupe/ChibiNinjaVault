@@ -5,40 +5,45 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.ninjavault.app.vault.ActivationSequenceManager
 import com.ninjavault.app.vault.SwipeDirection
 import kotlinx.coroutines.delay
 import kotlin.math.abs
+import kotlin.math.max
 import kotlin.random.Random
 
-private const val LANE_COUNT = 3
-private const val NINJA_Y_FRACTION = 0.82f
-private const val HIT_ZONE_START = NINJA_Y_FRACTION - 0.04f
-private const val HIT_ZONE_END = NINJA_Y_FRACTION + 0.04f
+private const val NINJA_Y = 0.80f
 private const val COIN_POINTS = 50
-private const val HIT_PENALTY = 200
 
-data class RunnerObstacle(val id: Long, val lane: Int, val progress: Float, val isCoin: Boolean)
+private enum class ItemType { COIN, ROCK, GATE, BRANCH }
+private data class RunnerItem(
+    val id: Long,
+    val lane: Int,
+    val depth: Float,
+    val type: ItemType,
+    val resolved: Boolean = false
+)
 
-/**
- * The main "game" screen: a lightweight 3-lane endless runner. Swipe left/right
- * to change lanes, swipe up to jump (clears obstacles), swipe down to slide.
- * Collect coins for bonus points; running into an obstacle costs points.
- *
- * Every swipe is also fed into [activationManager]; when the player's swipes
- * match their configured unlock pattern, [onUnlocked] fires and the app
- * transitions toward the vault. This is a deliberate, user-configured combination
- * — nothing here is hidden from the player or disguises what the app does.
- */
+/** Compose pseudo-3D endless runner. Swipes continue to feed the configured vault activation sequence. */
 @Composable
 fun NinjaRunScreen(
     activationManager: ActivationSequenceManager,
@@ -46,83 +51,137 @@ fun NinjaRunScreen(
     onUnlocked: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var lane by remember { mutableStateOf(1) } // 0 = left, 1 = center, 2 = right
-    var isJumping by remember { mutableStateOf(false) }
-    var isSliding by remember { mutableStateOf(false) }
-    var score by remember { mutableStateOf(0) }
-    var obstacles by remember { mutableStateOf(listOf<RunnerObstacle>()) }
-    var nextId by remember { mutableStateOf(0L) }
-    var flashMessage by remember { mutableStateOf<String?>(null) }
-
+    var lane by remember { mutableIntStateOf(1) }
+    var jumping by remember { mutableStateOf(false) }
+    var sliding by remember { mutableStateOf(false) }
+    var score by remember { mutableIntStateOf(0) }
+    var coins by remember { mutableIntStateOf(0) }
+    var lives by remember { mutableIntStateOf(3) }
+    var distance by remember { mutableIntStateOf(0) }
+    var items by remember { mutableStateOf(listOf<RunnerItem>()) }
+    var nextId by remember { mutableLongStateOf(0L) }
+    var gameOver by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf("SWIPE TO DODGE  •  COLLECT COINS") }
+    var invulnerable by remember { mutableIntStateOf(0) }
     val haptic = LocalHapticFeedback.current
     val activationState by activationManager.state.collectAsState()
 
     LaunchedEffect(activationState) {
-        when (val s = activationState) {
+        when (val state = activationState) {
             is ActivationSequenceManager.ActivationState.Unlocked -> onUnlocked()
             is ActivationSequenceManager.ActivationState.Failed -> {
-                flashMessage = "..."
-                delay(400)
-                flashMessage = null
+                message = "KEEP RUNNING"
+                delay(650)
+                message = if (gameOver) "RUN OVER  •  SWIPE TO RETRY" else "SWIPE TO DODGE  •  COLLECT COINS"
             }
             is ActivationSequenceManager.ActivationState.LockedOut -> {
-                flashMessage = "Too many attempts — slow down"
-                // Clear the message once the lockout has actually ended.
-                delay(s.remainingMillis.coerceAtLeast(0L))
-                flashMessage = null
+                message = "TOO MANY ATTEMPTS — SLOW DOWN"
+                delay(state.remainingMillis.coerceAtLeast(0L))
+                message = if (gameOver) "RUN OVER  •  SWIPE TO RETRY" else "SWIPE TO DODGE  •  COLLECT COINS"
             }
-            else -> {}
+            else -> Unit
         }
     }
 
-    // Game loop: spawn obstacles/coins.
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(900)
-            obstacles = obstacles + RunnerObstacle(
-                id = nextId++,
-                lane = Random.nextInt(LANE_COUNT),
-                progress = 0f,
-                isCoin = Random.nextBoolean()
-            )
-        }
-    }
-
-    // Game loop: advance, collect coins, resolve collisions.
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(16)
-            var delta = 1 // distance score
-            val next = ArrayList<RunnerObstacle>(obstacles.size)
-            for (o in obstacles) {
-                val moved = o.copy(progress = o.progress + 0.02f)
-                val inHitZone = moved.progress in HIT_ZONE_START..HIT_ZONE_END && moved.lane == lane
-                when {
-                    inHitZone && moved.isCoin -> delta += COIN_POINTS
-                    inHitZone && !moved.isCoin && !isJumping -> delta -= HIT_PENALTY
-                    moved.progress < 1.2f -> next.add(moved)
+    LaunchedEffect(gameOver) {
+        if (gameOver) return@LaunchedEffect
+        while (!gameOver) {
+            delay((520L - distance / 8L).coerceAtLeast(230L))
+            if (!gameOver) {
+                val type = when (Random.nextInt(100)) {
+                    in 0..39 -> ItemType.COIN
+                    in 40..64 -> ItemType.ROCK
+                    in 65..82 -> ItemType.GATE
+                    else -> ItemType.BRANCH
                 }
+                items = items + RunnerItem(nextId++, Random.nextInt(3), 0f, type)
             }
-            obstacles = next
-            score = (score + delta).coerceAtLeast(0)
         }
     }
+
+    LaunchedEffect(gameOver) {
+        if (gameOver) return@LaunchedEffect
+        while (!gameOver) {
+            delay(16)
+            val speed = (0.0038f + distance / 180000f).coerceAtMost(0.009f)
+            var gained = 1
+            val next = ArrayList<RunnerItem>(items.size)
+            for (old in items) {
+                var item = old.copy(depth = old.depth + speed)
+                val hit = item.depth in 0.78f..0.90f && item.lane == lane && !item.resolved
+                if (hit) {
+                    item = item.copy(resolved = true)
+                    when (item.type) {
+                        ItemType.COIN -> {
+                            coins++
+                            gained += COIN_POINTS
+                            message = "+50  •  NICE CATCH!"
+                        }
+                        ItemType.ROCK -> if (!jumping && invulnerable == 0) {
+                            score = (score - 100).coerceAtLeast(0)
+                            lives--
+                            invulnerable = 35
+                            message = "ROCK HIT  •  JUMP NEXT TIME"
+                        }
+                        ItemType.GATE -> if (!sliding && invulnerable == 0) {
+                            score = (score - 100).coerceAtLeast(0)
+                            lives--
+                            invulnerable = 35
+                            message = "GATE HIT  •  SLIDE NEXT TIME"
+                        }
+                        ItemType.BRANCH -> if (!jumping && invulnerable == 0) {
+                            score = (score - 100).coerceAtLeast(0)
+                            lives--
+                            invulnerable = 35
+                            message = "BRANCH HIT  •  JUMP NEXT TIME"
+                        }
+                    }
+                    if (lives <= 0) {
+                        lives = 0
+                        gameOver = true
+                        message = "RUN OVER  •  SWIPE TO RETRY"
+                    }
+                }
+                if (item.depth < 1.08f) next.add(item)
+            }
+            items = next
+            distance++
+            score += gained
+            if (invulnerable > 0) invulnerable--
+            if (distance > 0 && distance % 300 == 0) message = "SPEED UP!"
+        }
+    }
+
+    LaunchedEffect(jumping) { if (jumping) { delay(520); jumping = false } }
+    LaunchedEffect(sliding) { if (sliding) { delay(500); sliding = false } }
 
     fun handleSwipe(direction: SwipeDirection) {
-        when (direction) {
-            SwipeDirection.LEFT -> lane = (lane - 1).coerceAtLeast(0)
-            SwipeDirection.RIGHT -> lane = (lane + 1).coerceAtMost(LANE_COUNT - 1)
-            SwipeDirection.UP -> isJumping = true
-            SwipeDirection.DOWN -> isSliding = true
+        if (gameOver) {
+            gameOver = false
+            lane = 1
+            jumping = false
+            sliding = false
+            score = 0
+            coins = 0
+            lives = 3
+            distance = 0
+            items = emptyList()
+            invulnerable = 0
+            message = "GO!  •  SWIPE TO DODGE"
+        } else {
+            when (direction) {
+                SwipeDirection.LEFT -> lane = (lane - 1).coerceAtLeast(0)
+                SwipeDirection.RIGHT -> lane = (lane + 1).coerceAtMost(2)
+                SwipeDirection.UP -> { jumping = true; sliding = false }
+                SwipeDirection.DOWN -> { sliding = true; jumping = false }
+            }
         }
         if (hapticsEnabled) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
         activationManager.onSwipe(direction)
     }
 
     Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color(0xFF1B1436))
+        modifier.fillMaxSize().background(Color(0xFF101B2B))
             .pointerInput(Unit) {
                 var dx = 0f
                 var dy = 0f
@@ -130,79 +189,134 @@ fun NinjaRunScreen(
                     onDragStart = { dx = 0f; dy = 0f },
                     onDragEnd = {
                         if (abs(dx) > abs(dy)) {
-                            if (abs(dx) > 60) handleSwipe(if (dx > 0) SwipeDirection.RIGHT else SwipeDirection.LEFT)
-                        } else {
-                            if (abs(dy) > 60) handleSwipe(if (dy > 0) SwipeDirection.DOWN else SwipeDirection.UP)
+                            if (abs(dx) > 55) handleSwipe(if (dx > 0) SwipeDirection.RIGHT else SwipeDirection.LEFT)
+                        } else if (abs(dy) > 55) {
+                            handleSwipe(if (dy > 0) SwipeDirection.DOWN else SwipeDirection.UP)
                         }
                     }
-                ) { change, amount ->
-                    change.consume()
-                    dx += amount.x
-                    dy += amount.y
-                }
+                ) { change, amount -> change.consume(); dx += amount.x; dy += amount.y }
             }
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            drawTrack(this)
-            drawObstacles(this, obstacles)
-            drawNinja(this, lane, isJumping, isSliding)
+        Canvas(Modifier.fillMaxSize()) {
+            drawWorld(distance)
+            drawItems(items)
+            drawRunner(lane, jumping, sliding, invulnerable > 0)
+            if (gameOver) drawRect(Color(0xAA06111D))
         }
-
-        // Reset transient pose states shortly after triggering.
-        LaunchedEffect(isJumping) { if (isJumping) { delay(350); isJumping = false } }
-        LaunchedEffect(isSliding) { if (isSliding) { delay(350); isSliding = false } }
-
-        Box(modifier = Modifier.align(Alignment.TopCenter)) {
-            GameHud(score = score, flashMessage = flashMessage)
+        Box(Modifier.align(Alignment.TopCenter).padding(top = 28.dp)) {
+            Text(
+                "SCORE  $score     ◆  $coins     ♥  $lives",
+                color = Color.White,
+                fontSize = 19.sp,
+                modifier = Modifier.background(Color(0xAA07111E), RoundedCornerShape(18.dp))
+                    .padding(horizontal = 18.dp, vertical = 10.dp)
+            )
+        }
+        Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 34.dp)) {
+            Text(
+                if (gameOver) "RUN OVER  •  SWIPE TO RETRY" else message,
+                color = if (gameOver) Color(0xFFFFD166) else Color(0xFFE6F1FF),
+                fontSize = 13.sp,
+                modifier = Modifier.background(Color(0xAA07111E), RoundedCornerShape(14.dp))
+                    .padding(horizontal = 14.dp, vertical = 9.dp)
+            )
         }
     }
 }
 
-private fun drawTrack(scope: DrawScope) {
-    val laneWidth = scope.size.width / LANE_COUNT
-    for (i in 1 until LANE_COUNT) {
-        scope.drawLine(
-            color = Color(0x33FFFFFF),
-            start = Offset(laneWidth * i, 0f),
-            end = Offset(laneWidth * i, scope.size.height),
-            strokeWidth = 4f
-        )
+private fun DrawScope.drawWorld(distance: Int) {
+    val w = size.width
+    val h = size.height
+    drawRect(brush = Brush.verticalGradient(listOf(Color(0xFF132B3A), Color(0xFF3A5C52), Color(0xFF182B2A))))
+    drawCircle(Color(0x44D9F0E8), w * 0.075f, Offset(w * 0.78f, h * 0.16f))
+    val mountain = Path().apply {
+        moveTo(0f, h * .39f); lineTo(w * .18f, h * .22f); lineTo(w * .33f, h * .38f)
+        lineTo(w * .53f, h * .19f); lineTo(w * .75f, h * .39f); lineTo(w, h * .25f)
+        lineTo(w, h * .58f); lineTo(0f, h * .58f); close()
+    }
+    drawPath(mountain, Color(0xFF203D43))
+    val road = Path().apply {
+        moveTo(w * .43f, h * .34f); lineTo(w * .57f, h * .34f)
+        lineTo(w * 1.08f, h); lineTo(w * -.08f, h); close()
+    }
+    drawPath(road, Color(0xFF34423E))
+    val edge = Color(0xFFB9A77A)
+    drawLine(edge.copy(alpha = .65f), Offset(w * .43f, h * .34f), Offset(w * -.08f, h), 3f)
+    drawLine(edge.copy(alpha = .65f), Offset(w * .57f, h * .34f), Offset(w * 1.08f, h), 3f)
+    val phase = (distance % 80) / 80f
+    for (laneLine in 1..2) {
+        val xTop = w * (.43f + .07f * laneLine)
+        val xBottom = w * (.333f * laneLine)
+        for (i in 0..7) {
+            val p = ((i / 8f + phase) % 1f)
+            val y = h * (.36f + p * .62f)
+            val t = (y / h - .34f) / .66f
+            val x = xTop + (xBottom - xTop) * t
+            drawLine(Color(0x77E5D9B5), Offset(x, y), Offset(x, y + 4f + 15f * t), 2f + 4f * t)
+        }
+    }
+    for (i in 0..8) {
+        val p = ((i / 9f + phase) % 1f)
+        val y = h * (.30f + p * .72f)
+        val scale = .18f + p * .9f
+        val lx = w * (.14f - p * .20f) + (i % 3) * 15f
+        val rx = w * (.86f + p * .20f) - (i % 3) * 15f
+        drawLine(Color(0xFF152F2C), Offset(lx, y - 70f * scale), Offset(lx - 5f * scale, y + 50f * scale), 5f * scale)
+        drawLine(Color(0xFF152F2C), Offset(rx, y - 70f * scale), Offset(rx + 5f * scale, y + 50f * scale), 5f * scale)
     }
 }
 
-private fun drawObstacles(scope: DrawScope, obstacles: List<RunnerObstacle>) {
-    val laneWidth = scope.size.width / LANE_COUNT
-    obstacles.forEach { obstacle ->
-        val cx = laneWidth * obstacle.lane + laneWidth / 2
-        val cy = scope.size.height * obstacle.progress
-        scope.drawCircle(
-            color = if (obstacle.isCoin) Color(0xFFFFD54F) else Color(0xFFEF5350),
-            radius = if (obstacle.isCoin) 18f else 26f,
-            center = Offset(cx, cy)
-        )
+private fun DrawScope.drawItems(items: List<RunnerItem>) {
+    val w = size.width
+    val h = size.height
+    items.sortedBy { it.depth }.forEach { item ->
+        val p = item.depth.coerceIn(0f, 1f)
+        val y = h * (.34f + p * .62f)
+        val cx = w * (.5f + (item.lane - 1) * (.07f + p * .26f))
+        val r = 5f + p * p * 32f
+        when (item.type) {
+            ItemType.COIN -> {
+                drawCircle(Color(0xFFFFD166), r, Offset(cx, y), style = Stroke(width = max(2f, r * .18f)))
+                drawCircle(Color(0xFFFFF0A6), r * .58f, Offset(cx, y))
+            }
+            ItemType.ROCK -> {
+                drawRoundRect(Color(0xFF6C7775), Offset(cx - r, y - r * .8f), Size(r * 2f, r * 1.6f), CornerRadius(r * .35f))
+                drawRoundRect(Color(0xFF9BA39B), Offset(cx - r * .55f, y - r * .58f), Size(r * .7f, r * .45f), CornerRadius(r * .2f))
+            }
+            ItemType.GATE -> {
+                val gw = r * 2.5f
+                drawRoundRect(Color(0xFF8A4739), Offset(cx - gw / 2, y - r * .4f), Size(gw, r * .55f), CornerRadius(r * .12f))
+                drawRect(Color(0xFFC17C52), Offset(cx - gw / 2, y - r * .65f), Size(gw, r * .22f))
+            }
+            ItemType.BRANCH -> {
+                drawLine(Color(0xFF6D4B31), Offset(cx - r * 1.5f, y - r * .45f), Offset(cx + r * 1.5f, y - r * .45f), r * .55f)
+                drawCircle(Color(0xFF39704A), r * .65f, Offset(cx - r, y - r * .55f))
+                drawCircle(Color(0xFF39704A), r * .65f, Offset(cx + r, y - r * .55f))
+            }
+        }
     }
 }
 
-private fun drawNinja(scope: DrawScope, lane: Int, isJumping: Boolean, isSliding: Boolean) {
-    val laneWidth = scope.size.width / LANE_COUNT
-    val cx = laneWidth * lane + laneWidth / 2
-    val baseY = scope.size.height * NINJA_Y_FRACTION
-    val cy = if (isJumping) baseY - 90f else baseY
-    val height = if (isSliding) 30f else 60f
-    scope.drawCircle(color = Color(0xFF7C4DFF), radius = 22f, center = Offset(cx, cy - height))
-    scope.drawRoundRect(
-        color = Color(0xFF512DA8),
-        topLeft = Offset(cx - 18f, cy - height + 18f),
-        size = androidx.compose.ui.geometry.Size(36f, height),
-        cornerRadius = androidx.compose.ui.geometry.CornerRadius(12f, 12f)
-    )
-}
-
-@Composable
-private fun GameHud(score: Int, flashMessage: String?) {
-    androidx.compose.material3.Text(
-        text = "Score: $score" + (flashMessage?.let { "  ·  $it" } ?: ""),
-        color = Color.White,
-        modifier = Modifier.background(Color(0x66000000))
-    )
+private fun DrawScope.drawRunner(lane: Int, jumping: Boolean, sliding: Boolean, flashing: Boolean) {
+    val w = size.width
+    val h = size.height
+    val x = w * (.5f + (lane - 1) * .333f)
+    val baseY = h * NINJA_Y - if (jumping) 85f else 0f
+    val scale = if (sliding) .72f else 1f
+    val cloak = if (flashing) Color(0xFFFFA4A4) else Color(0xFF7B5CFA)
+    drawOval(Color(0x55000000), Offset(x - 32f, h * NINJA_Y + 24f), Size(64f, 16f))
+    val scarf = Path().apply {
+        moveTo(x - 10f, baseY - 55f * scale); lineTo(x - 47f, baseY - 43f * scale)
+        lineTo(x - 17f, baseY - 30f * scale); close()
+    }
+    drawPath(scarf, Color(0xFFE34C5B))
+    drawCircle(Color(0xFF171D2D), 17f * scale, Offset(x, baseY - 67f * scale))
+    drawRoundRect(cloak, Offset(x - 23f * scale, baseY - 53f * scale), Size(46f * scale, 51f * scale), CornerRadius(13f))
+    drawRoundRect(Color(0xFFE7E9F2), Offset(x - 12f * scale, baseY - 73f * scale), Size(24f * scale, 7f * scale), CornerRadius(4f))
+    drawCircle(Color(0xFF101827), 2.8f * scale, Offset(x - 5f * scale, baseY - 69f * scale))
+    drawCircle(Color(0xFF101827), 2.8f * scale, Offset(x + 5f * scale, baseY - 69f * scale))
+    if (!sliding) {
+        drawLine(Color(0xFF171D2D), Offset(x - 10f, baseY - 7f), Offset(x - 18f, baseY + 15f), 8f)
+        drawLine(Color(0xFF171D2D), Offset(x + 10f, baseY - 7f), Offset(x + 19f, baseY + 12f), 8f)
+    }
 }
