@@ -15,6 +15,7 @@ import androidx.fragment.app.FragmentActivity
 import com.ninjavault.app.data.SecurePrefs
 import com.ninjavault.app.ui.nav.NinjaRunNavGraph
 import com.ninjavault.app.ui.theme.NinjaRunTheme
+import com.ninjavault.app.ui.theme.VaultColorTheme
 import com.ninjavault.app.vault.AppLockController
 
 /**
@@ -26,7 +27,7 @@ class MainActivity : FragmentActivity() {
 
     private lateinit var prefs: SecurePrefs
     private val appLock = AppLockController()
-    private var darkTheme by mutableStateOf(true)
+    private var selectedTheme by mutableStateOf(VaultColorTheme.SHADOW_NINJA)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Deliberately discard saved instance state. Restoring it after the process was
@@ -36,7 +37,7 @@ class MainActivity : FragmentActivity() {
         super.onCreate(null)
         enableEdgeToEdge()
         prefs = SecurePrefs(this)
-        darkTheme = prefs.darkTheme
+        selectedTheme = VaultColorTheme.fromStored(prefs.vaultColorTheme)
 
         // Prevents screenshots/screen-recording and hides content in the
         // recent-apps thumbnail while the vault (or its unlock flow) is on
@@ -45,13 +46,16 @@ class MainActivity : FragmentActivity() {
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
 
         setContent {
-            NinjaRunTheme(darkTheme = darkTheme) {
+            NinjaRunTheme(theme = selectedTheme) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     NinjaRunNavGraph(
                         activity = this@MainActivity,
                         prefs = prefs,
                         appLock = appLock,
-                        onDarkThemeChange = { darkTheme = it }
+                        onDarkThemeChange = {
+                            // Settings persists the selected palette before notifying us.
+                            selectedTheme = VaultColorTheme.fromStored(prefs.vaultColorTheme)
+                        }
                     )
                 }
             }

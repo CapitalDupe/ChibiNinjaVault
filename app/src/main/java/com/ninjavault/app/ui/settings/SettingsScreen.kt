@@ -1,7 +1,11 @@
 package com.ninjavault.app.ui.settings
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -9,8 +13,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.ninjavault.app.data.SecurePrefs
+import com.ninjavault.app.ui.theme.VaultColorTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,7 +32,7 @@ fun SettingsScreen(
     var biometric by remember { mutableStateOf(prefs.isBiometricEnabled && biometricAvailable) }
     var lockOnBackground by remember { mutableStateOf(prefs.lockOnBackground) }
     var haptics by remember { mutableStateOf(prefs.hapticsEnabled) }
-    var darkTheme by remember { mutableStateOf(prefs.darkTheme) }
+    var selectedTheme by remember { mutableStateOf(VaultColorTheme.fromStored(prefs.vaultColorTheme)) }
     var autoLock by remember { mutableStateOf(prefs.autoLockTimeoutSeconds.toFloat()) }
     var showResetConfirm by remember { mutableStateOf(false) }
 
@@ -47,7 +54,6 @@ fun SettingsScreen(
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-
             SettingsSection("Unlock") {
                 Button(onClick = onChangeCredentials) { Text("Change pattern, PIN or biometrics") }
             }
@@ -59,7 +65,8 @@ fun SettingsScreen(
                     checked = biometric,
                     enabled = biometricAvailable
                 ) {
-                    biometric = it; prefs.isBiometricEnabled = it
+                    biometric = it
+                    prefs.isBiometricEnabled = it
                 }
             }
 
@@ -72,16 +79,70 @@ fun SettingsScreen(
                     valueRange = 10f..300f
                 )
                 SettingsToggle("Lock when app goes to background", lockOnBackground) {
-                    lockOnBackground = it; prefs.lockOnBackground = it
+                    lockOnBackground = it
+                    prefs.lockOnBackground = it
                 }
             }
 
-            SettingsSection("Feedback & appearance") {
-                SettingsToggle("Haptics", haptics) { haptics = it; prefs.hapticsEnabled = it }
-                SettingsToggle("Dark theme", darkTheme) {
-                    darkTheme = it
-                    prefs.darkTheme = it
-                    onDarkThemeChange(it)
+            SettingsSection("Appearance") {
+                Text(
+                    "Choose a colour theme for your vault. Your selection is saved on this device.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(Modifier.height(8.dp))
+                VaultColorTheme.values().forEach { theme ->
+                    val selected = selectedTheme == theme
+                    Surface(
+                        onClick = {
+                            selectedTheme = theme
+                            prefs.vaultColorTheme = theme.name
+                            onDarkThemeChange(theme.isDark)
+                        },
+                        shape = RoundedCornerShape(14.dp),
+                        color = if (selected) MaterialTheme.colorScheme.secondaryContainer
+                            else MaterialTheme.colorScheme.surface,
+                        border = androidx.compose.foundation.BorderStroke(
+                            width = if (selected) 2.dp else 1.dp,
+                            color = if (selected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.outlineVariant
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                listOf(theme.background, theme.primary, theme.secondary).forEach { swatch ->
+                                    Box(
+                                        modifier = Modifier
+                                            .size(22.dp)
+                                            .clip(CircleShape)
+                                            .background(swatch)
+                                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                                    )
+                                }
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(theme.label, style = MaterialTheme.typography.titleMedium)
+                                Text(theme.description, style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            RadioButton(selected = selected, onClick = {
+                                selectedTheme = theme
+                                prefs.vaultColorTheme = theme.name
+                                onDarkThemeChange(theme.isDark)
+                            })
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                SettingsToggle("Haptics", haptics) {
+                    haptics = it
+                    prefs.hapticsEnabled = it
                 }
             }
 

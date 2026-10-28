@@ -12,6 +12,8 @@ class VaultNamesTest {
         assertEquals("photo.adx", VaultNames.adxDisplayName("photo.jpg"))
         assertEquals("a.b.adx", VaultNames.adxDisplayName("a.b.png"))
         assertEquals("notes.adx", VaultNames.adxDisplayName("notes"))
+        assertEquals("clip.adx", VaultNames.adxDisplayName("clip.MP4.adx"))
+        assertEquals("clip.adx", VaultNames.adxDisplayName("clip.MP4.ADX"))
     }
 
     @Test

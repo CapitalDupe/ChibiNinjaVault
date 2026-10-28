@@ -45,12 +45,21 @@ object VaultNames {
         "application/x-yaml", "application/x-sh", "application/x-python-code"
     )
 
-    /** The name shown in the vault list: the original base name with the app's .adx extension. */
+    /**
+     * Name shown in the vault list: replace the source extension with ".adx", not append it.
+     * If a legacy or already-normalized name is passed in (for example "clip.MP4.adx"),
+     * remove the old .adx first, then replace the media extension. This is idempotent.
+     */
     fun adxDisplayName(original: String): String {
         val trimmed = original.trim()
-        val dot = trimmed.lastIndexOf('.')
+        val withoutAdx = if (trimmed.endsWith(ADX_SUFFIX, ignoreCase = true)) {
+            trimmed.dropLast(ADX_SUFFIX.length)
+        } else {
+            trimmed
+        }
+        val dot = withoutAdx.lastIndexOf('.')
         // dot > 0 so dot-files like ".hidden" keep their whole name instead of becoming ".adx".
-        val base = if (dot > 0) trimmed.substring(0, dot) else trimmed
+        val base = if (dot > 0) withoutAdx.substring(0, dot) else withoutAdx
         return (base.ifEmpty { "file" }) + ADX_SUFFIX
     }
 
