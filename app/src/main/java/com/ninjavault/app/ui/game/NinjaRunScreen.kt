@@ -31,7 +31,6 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.random.Random
 
-private const val LANE_COUNT = 3
 private const val NINJA_Y = 0.80f
 private const val COIN_POINTS = 50
 
@@ -57,6 +56,7 @@ fun NinjaRunScreen(
     var sliding by remember { mutableStateOf(false) }
     var score by remember { mutableIntStateOf(0) }
     var coins by remember { mutableIntStateOf(0) }
+    var lives by remember { mutableIntStateOf(3) }
     var distance by remember { mutableIntStateOf(0) }
     var items by remember { mutableStateOf(listOf<RunnerItem>()) }
     var nextId by remember { mutableLongStateOf(0L) }
@@ -94,7 +94,7 @@ fun NinjaRunScreen(
                     in 65..82 -> ItemType.GATE
                     else -> ItemType.BRANCH
                 }
-                items = items + RunnerItem(nextId++, Random.nextInt(LANE_COUNT), 0f, type)
+                items = items + RunnerItem(nextId++, Random.nextInt(3), 0f, type)
             }
         }
     }
@@ -119,19 +119,27 @@ fun NinjaRunScreen(
                         }
                         ItemType.ROCK -> if (!jumping && invulnerable == 0) {
                             score = (score - 100).coerceAtLeast(0)
+                            lives--
                             invulnerable = 35
-                            message = "JUMP OVER THE ROCK!"
+                            message = "ROCK HIT  •  JUMP NEXT TIME"
                         }
                         ItemType.GATE -> if (!sliding && invulnerable == 0) {
                             score = (score - 100).coerceAtLeast(0)
+                            lives--
                             invulnerable = 35
-                            message = "SLIDE UNDER THE GATE!"
+                            message = "GATE HIT  •  SLIDE NEXT TIME"
                         }
                         ItemType.BRANCH -> if (!jumping && invulnerable == 0) {
                             score = (score - 100).coerceAtLeast(0)
+                            lives--
                             invulnerable = 35
-                            message = "JUMP THE BRANCH!"
+                            message = "BRANCH HIT  •  JUMP NEXT TIME"
                         }
+                    }
+                    if (lives <= 0) {
+                        lives = 0
+                        gameOver = true
+                        message = "RUN OVER  •  SWIPE TO RETRY"
                     }
                 }
                 if (item.depth < 1.08f) next.add(item)
@@ -155,6 +163,7 @@ fun NinjaRunScreen(
             sliding = false
             score = 0
             coins = 0
+            lives = 3
             distance = 0
             items = emptyList()
             invulnerable = 0
@@ -196,9 +205,9 @@ fun NinjaRunScreen(
         }
         Box(Modifier.align(Alignment.TopCenter).padding(top = 28.dp)) {
             Text(
-                "SCORE  $score     ◆  $coins",
+                "SCORE  $score     ◆  $coins     ♥  $lives",
                 color = Color.White,
-                fontSize = 20.sp,
+                fontSize = 19.sp,
                 modifier = Modifier.background(Color(0xAA07111E), RoundedCornerShape(18.dp))
                     .padding(horizontal = 18.dp, vertical = 10.dp)
             )
