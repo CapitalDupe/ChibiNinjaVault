@@ -24290,16 +24290,16 @@ void main() {
     }
     // 竞速结算：名次 / 用时 / 芯片
     setRaceResult(place, total, timeStr, coins2, isBest) {
-      this.el.deathLabel.textContent = place === 1 ? "\u51A0\u519B \xB7 \u7B2C\u4E00\u4E2A\u51B2\u8FC7\u7EC8\u70B9\u7EBF" : `\u7B2C ${place} \u540D \xB7 \u53EA\u5DEE\u4E00\u70B9`;
-      this.el.f1l.textContent = "\u540D\u6B21";
-      this.el.f2l.textContent = "\u7528\u65F6";
+      this.el.deathLabel.textContent = place === 1 ? "CHAMPION · First across the finish line" : `${place} place · So close`;
+      this.el.f1l.textContent = "RANK";
+      this.el.f2l.textContent = "TIME";
       this.el.f3l.textContent = "CHIPS";
       this.el.f1u.textContent = "";
       this.el.f3u.textContent = "";
       this.el.finalDist.textContent = `${place}/${total}`;
       this.el.finalCoins.textContent = timeStr;
       this.el.finalBest.textContent = coins2;
-      this.el.newRecord.textContent = "\u2605 BEST\u7528\u65F6 \u2605";
+      this.el.newRecord.textContent = "\u2605 BESTTIME \u2605";
       this.el.newRecord.classList.toggle("visible", !!isBest);
     }
     toast(msg, ms = 1800) {
@@ -24890,12 +24890,12 @@ void main() {
 
   // src/powerups.js
   var SKILLS = {
-    gale: { name: "TAILWIND", icon: "🌬", self: true, dur: 8, color: 8250367, desc: "\u901F\u5EA6 +22% \xB7 8s" },
-    shield: { name: "SHIELD", icon: "🛡", self: true, dur: 10, color: 9109441, desc: "\u514D\u75AB\u4E00\u6B21\u649E\u51FB/\u5760\u843D \xB7 10s" },
-    magnet: { name: "MAGNET", icon: "🧲", self: true, dur: 8, color: 16765565, desc: "\u5927\u8303\u56F4\u5438\u53D6CHIPS \xB7 8s" },
-    headwind: { name: "HEADWIND", icon: "🌪", self: false, dur: 4, color: 16751196, desc: "\u76EE\u6807\u51CF\u901F 28% \xB7 4s" },
-    blackout: { name: "BLACKOUT", icon: "🔌", self: false, dur: 5, color: 13215487, desc: "\u76EE\u6807\u80FD\u91CF\u6E05\u96F6 \xB7 5s \u65E0\u6CD5\u8FC7\u8F7D" },
-    lockjump: { name: "JUMP LOCK", icon: "⛓", self: false, dur: 4, color: 16747146, desc: "\u76EE\u6807\u65E0\u6CD5\u8DF3\u8DC3 \xB7 4s" }
+    gale: { name: "TAILWIND", icon: "🌬", self: true, dur: 8, color: 8250367, desc: "SPEED +22% · 8s" },
+    shield: { name: "SHIELD", icon: "🛡", self: true, dur: 10, color: 9109441, desc: "BLOCK ONE HIT/FALL · 10s" },
+    magnet: { name: "MAGNET", icon: "🧲", self: true, dur: 8, color: 16765565, desc: "ATTRACT CHIPS · 8s" },
+    headwind: { name: "HEADWIND", icon: "🌪", self: false, dur: 4, color: 16751196, desc: "SLOW TARGET 28% · 4s" },
+    blackout: { name: "BLACKOUT", icon: "🔌", self: false, dur: 5, color: 13215487, desc: "ZERO TARGET ENERGY · 5s" },
+    lockjump: { name: "JUMP LOCK", icon: "⛓", self: false, dur: 4, color: 16747146, desc: "TARGET CANNOT JUMP · 4s" }
   };
   var SKILL_KEYS = Object.keys(SKILLS);
   var BOX_FIRST = 220;
@@ -25111,7 +25111,7 @@ void main() {
               this.ws && this.ws.close();
             } catch {
             }
-            reject(new Error("\u8FDE\u63A5\u8D85\u65F6"));
+            reject(new Error("Connection timed out"));
           }
         }, 6e3);
         try {
@@ -25129,7 +25129,7 @@ void main() {
           if (!settled) {
             settled = true;
             clearTimeout(timer);
-            reject(new Error("\u65E0\u6CD5\u8FDE\u63A5\u8054\u673A\u670D\u52A1\u5668"));
+            reject(new Error("Could not connect to the online server"));
           }
         };
         this.ws.onclose = () => {
@@ -25226,7 +25226,7 @@ void main() {
           }
         }
       }
-      throw lastErr || new Error("\u65E0\u6CD5\u8FDE\u63A5\u8054\u673A\u670D\u52A1\u5668");
+      throw lastErr || new Error("Could not connect to the online server");
     }
     _send(obj) {
       if (!this._mqtt) return false;
@@ -25236,7 +25236,7 @@ void main() {
       this._send({ t: "roster", players: this.players, seed: this.seed, host: this.id });
     }
     async create(name) {
-      this.name = name || "\u73A9\u5BB6";
+      this.name = name || "Player";
       this.isHost = true;
       this.seed = Math.random() * 1e9 | 0;
       this.code = genCode();
@@ -25247,12 +25247,12 @@ void main() {
       return this.code;
     }
     async join(code, name) {
-      this.name = name || "\u73A9\u5BB6";
+      this.name = name || "Player";
       this.isHost = false;
       this.code = String(code || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
-      if (this.code.length !== 6) throw new Error("\u623F\u95F4\u7801\u662F 6 \u4F4D");
+      if (this.code.length !== 6) throw new Error("Room code must be 6 digits");
       await this._open();
-      let lastErr = new Error("\u623F\u95F4\u4E0D\u5B58\u5728\uFF0C\u6216Host\u5DF2\u7ECF\u79BB\u5F00");
+      let lastErr = new Error("Room not found or host has left");
       for (let attempt = 0; attempt < 3; attempt++) {
         this._send({ t: "join", id: this.id, name: this.name });
         try {
@@ -25305,7 +25305,7 @@ void main() {
             this._send({ t: "full", to: m.id });
             return;
           }
-          if (!this.players.some((p) => p.id === m.id)) this.players.push({ id: m.id, name: m.name || "\u73A9\u5BB6" });
+          if (!this.players.some((p) => p.id === m.id)) this.players.push({ id: m.id, name: m.name || "Player" });
           this._broadcastRoster();
           this.onEvent("roster", this.players);
           break;
@@ -25472,7 +25472,7 @@ void main() {
     hud.buffs([]);
     hud.blackout(0);
     netSendT = 0;
-    player.onShieldBreak = (how) => hud.toast(how === "fall" ? "🛡 SHIELD\u62B5\u6D88\u4E86\u5760\u843D" : "🛡 SHIELD\u6321\u4F4F\u4E86\u649E\u51FB", 1500);
+    player.onShieldBreak = (how) => hud.toast(how === "fall" ? "🛡 Shield prevented a fall" : "🛡 Shield blocked the hit", 1500);
     baseSpeed = 12;
     speed = 12;
     dist = 0;
@@ -25608,14 +25608,14 @@ void main() {
     } else {
       atkSkill = box.skill;
       hud.skill({ icon: s.icon, name: s.name });
-      hud.toast(`${s.icon} \u62FF\u5230 ${s.name} \xB7 Press 1/2/3 to target`, 1900);
+      hud.toast(`${s.icon} ${s.name} collected · Press 1/2/3 to target`, 1900);
     }
   }
   function castAttack(place) {
     if (mode !== "race" || !atkSkill || !player.alive) return;
     const row = race.rows(player.pos.z).find((r) => r.place === place);
     if (!row || row.me) {
-      hud.toast("\u8981\u9009Opponent\u7684\u540D\u6B21", 1e3);
+      hud.toast("\u8981\u9009Opponent\u7684RANK", 1e3);
       return;
     }
     const o = race.opponents.find((x) => x.id === row.id) || race.opponents.find((x) => x.name === row.name);
@@ -25642,7 +25642,7 @@ void main() {
     } else if (kind === "lockjump") {
       player.noJumpT = s.dur;
     }
-    hud.toast(`\u88AB ${fromName || "Opponent"} \u7684 ${s.icon}${s.name} \u547D\u4E2D`, 1700);
+    hud.toast(`} \u7684 ${s.icon}${s.name} \u547D\u4E2D"Opponent"} \u7684 ${s.icon}${s.name} \u547D\u4E2D`, 1700);
     hud.hit(0.9);
     audio.crash();
   }
@@ -25682,7 +25682,7 @@ void main() {
       return `<div class="lobby-player${me ? " me" : ""}" style="--c:${colors[i % 3]}"><i></i><span>${esc(p.name)}</span><em>${tag}${me ? tag ? " \xB7 YOU" : "YOU" : ""}</em></div>`;
     }).join("");
     lobbyEl.start.style.display = net.isHost ? "" : "none";
-    lobbyEl.start.textContent = net.isHost ? "Start race" : "\u7B49\u5F85Host\u5F00\u59CB";
+    lobbyEl.start.textContent = net.isHost ? "Start race" : "Waiting for host to start";
   }
   function onNetEvent(type, data) {
     if (type === "roster") {
@@ -25718,17 +25718,17 @@ void main() {
       if (mode === "race" && netRace) {
         const o = race.opponents.find((x) => x.id === data.id);
         race.takeover(data.id);
-        if (o) hud.toast(`${o.name} \u79BB\u5F00\u4E86 \xB7 AI \u63A5\u7BA1`, 2200);
+        if (o) hud.toast(`${o.name} left · AI takeover`, 2200);
       }
       renderLobby();
       return;
     }
     if (type === "disconnect") {
-      lobbyStatus("\u8054\u673A\u5DF2\u65AD\u5F00");
+      lobbyStatus("Disconnected from online race");
       if (mode === "race" && netRace) {
         for (const o of race.opponents) if (o.remote) race.takeover(o.id);
         netRace = false;
-        hud.toast("\u7F51\u7EDC\u65AD\u5F00 \xB7 Opponent\u8F6C\u4E3A AI \u6258\u7BA1", 2600);
+        hud.toast("Network lost · Opponent switched to AI", 2600);
       }
     }
   }
@@ -25736,7 +25736,7 @@ void main() {
     lobbyEl.screen.classList.remove("visible");
   }
   async function doCreate() {
-    const name = (lobbyEl.name.value || "").trim().slice(0, 8) || "\u73A9\u5BB6";
+    const name = (lobbyEl.name.value || "").trim().slice(0, 8) || "Player";
     localStorage.setItem("sr-name", name);
     lobbyStatus("Connecting to online server…");
     const n = new Net();
@@ -25754,10 +25754,10 @@ void main() {
     }
   }
   async function doJoin() {
-    const name = (lobbyEl.name.value || "").trim().slice(0, 8) || "\u73A9\u5BB6";
+    const name = (lobbyEl.name.value || "").trim().slice(0, 8) || "Player";
     const code = (lobbyEl.codeIn.value || "").trim().toUpperCase();
     if (code.length !== 6) {
-      lobbyStatus("\u623F\u95F4\u7801\u662F 6 \u4F4D");
+      lobbyStatus("Room code must be 6 digits");
       return;
     }
     localStorage.setItem("sr-name", name);
@@ -25790,7 +25790,7 @@ void main() {
   bindUI("joinRoomBtn", doJoin);
   bindUI("roomStartBtn", () => {
     if (!net || !net.isHost) {
-      lobbyStatus("\u53EA\u6709Host\u80FDStart race");
+      lobbyStatus("Only the host can start the race");
       return;
     }
     net.startRace(3.4);
@@ -25940,7 +25940,7 @@ void main() {
     if (odCd > 0) odCd -= dt;
     if (running && actions.dash) {
       if (player.noFuelT > 0) {
-        hud.toast("\u26A1 BLACKOUT\u4E2D \xB7 \u65E0\u6CD5\u8FC7\u8F7D", 1e3);
+        hud.toast("⚡ Blackout active · Overdrive disabled", 1e3);
       } else if (energy >= 50 && odT <= 0 && odCd <= 0) {
         odT = 4;
         odCd = 10;
@@ -25949,9 +25949,9 @@ void main() {
         hud.toast("⚡ OVERDRIVE", 1400);
         fx.burst(player.pos, 9427199, { count: 26, speed: 6, up: 3, life: 0.6, spread: 0.8 });
       } else if (odCd > 0) {
-        hud.toast(`Overdrive cooldown\u4E2D \xB7 ${Math.ceil(odCd)}s`, 900);
+        hud.toast(`Overdrive cooldown · ${Math.ceil(odCd)}s`, 900);
       } else {
-        hud.toast("\u80FD\u91CF\u4E0D\u8DB3 \xB7 \u6536\u96C6CHIPS", 900);
+        hud.toast("Not enough energy · Collect chips", 900);
       }
     }
     if (odT > 0) {
@@ -26029,7 +26029,7 @@ void main() {
         for (const o of race.opponents) {
           if (o.remote && Date.now() - o.lastSeen > 5e3) {
             race.takeover(o.id);
-            hud.toast(`${o.name} \u6389\u7EBF \xB7 AI \u63A5\u7BA1`, 2200);
+            hud.toast(`${o.name} disconnected · AI takeover`, 2200);
           }
         }
       }
